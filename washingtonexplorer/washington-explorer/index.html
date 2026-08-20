@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Washington Explorer — demographics, amenities, transit, crime &amp; drive times</title>
+  <meta name="description" content="Interactive Washington state map: ACS demographics and health-insurance choropleths, schools and amenities, statewide transit, city police incident data, and 5/10/15-minute drive-time areas.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗺️</text></svg>">
+  <!-- Leaflet + plugins from pinned CDN versions, SRI-verified (hashes computed
+       from the exact npm tarballs), with jsDelivr fallback for each file. -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+        crossorigin="anonymous"
+        onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+        integrity="sha384-pmjIAcz2bAn0xukfxADbZIb3t8oRT9Sv0rvO+BR5Csr6Dhqq+nZs59P0pPKQJkEV"
+        crossorigin="anonymous"
+        onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css'">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+        integrity="sha384-wgw+aLYNQ7dlhK47ZPK7FRACiq7ROZwgFNg0m04avm4CaXS+Z9Y7nMu8yNjBKYC+"
+        crossorigin="anonymous"
+        onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css'">
+  <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="sidebar-toggle" class="icon-btn" aria-label="Toggle panel">☰</button>
+    <div class="brand">
+      <span class="brand-title">Washington Explorer</span>
+      <span class="brand-sub">demographics · amenities · transit · crime · drive times</span>
+    </div>
+    <button id="about-btn" class="btn ghost small-btn" type="button">Sources &amp; methodology</button>
+  </header>
+
+  <div id="app">
+    <aside id="sidebar">
+      <section class="side-section">
+        <label class="section-label" for="search-input">Find an address or place</label>
+        <div class="search-row">
+          <input id="search-input" class="input" type="text" placeholder="e.g. 400 Broad St, Seattle" autocomplete="off">
+          <button id="search-btn" class="btn" type="button">Go</button>
+        </div>
+        <div id="search-results" class="search-results" style="display:none"></div>
+      </section>
+
+      <section class="side-section tool-row">
+        <button id="pin-mode-btn" class="btn tool" type="button" title="Toggle pin mode, then click the map (Esc to exit)">📌 Drop pins <span id="pin-count" class="pill"></span></button>
+        <button id="pin-clear-btn" class="btn tool ghost" type="button">Clear pins</button>
+        <button id="locate-btn" class="btn tool ghost" type="button">🧭 My location</button>
+        <button id="home-btn" class="btn tool ghost" type="button">🏠 Washington</button>
+      </section>
+
+      <section class="side-section">
+        <h2 class="section-title">Base map</h2>
+        <div id="basemap-list" class="bm-list"></div>
+      </section>
+
+      <section class="side-section">
+        <h2 class="section-title">Layers</h2>
+
+        <div class="layer-card" id="card-drivetime">
+          <div class="card-head">
+            <span class="card-title">🚗 Drive-time areas <span class="tag">5 / 10 / 15 min</span></span>
+            <label class="card-toggle switch" title="Show/hide"><input type="checkbox"><span class="knob"></span></label>
+          </div>
+          <div class="card-body"></div>
+        </div>
+
+        <div class="layer-card" id="card-demographics">
+          <div class="card-head">
+            <span class="card-title">📊 Demographics <span class="tag">ACS 5-year</span></span>
+            <label class="card-toggle switch" title="Show/hide"><input type="checkbox"><span class="knob"></span></label>
+          </div>
+          <div class="card-body"></div>
+        </div>
+
+        <div class="layer-card" id="card-insurance">
+          <div class="card-head">
+            <span class="card-title">🩺 Health insurance <span class="tag">ACS S2701</span></span>
+            <label class="card-toggle switch" title="Show/hide"><input type="checkbox"><span class="knob"></span></label>
+          </div>
+          <div class="card-body"></div>
+        </div>
+
+        <div class="layer-card" id="card-amenities">
+          <div class="card-head">
+            <span class="card-title">🛍️ Amenities <span class="tag">NCES + OSM</span></span>
+            <label class="card-toggle switch" title="Show/hide"><input type="checkbox"><span class="knob"></span></label>
+          </div>
+          <div class="card-body"></div>
+        </div>
+
+        <div class="layer-card" id="card-transit">
+          <div class="card-head">
+            <span class="card-title">🚌 Transit <span class="tag">WSDOT GTFS</span></span>
+            <label class="card-toggle switch" title="Show/hide"><input type="checkbox"><span class="knob"></span></label>
+          </div>
+          <div class="card-body"></div>
+        </div>
+
+        <div class="layer-card" id="card-crime">
+          <div class="card-head">
+            <span class="card-title">🚨 Crime <span class="tag">police open data</span></span>
+            <label class="card-toggle switch" title="Show/hide"><input type="checkbox"><span class="knob"></span></label>
+          </div>
+          <div class="card-body"></div>
+        </div>
+      </section>
+
+      <footer class="side-footer">
+        All data loads live from public services (U.S. Census Bureau, NCES, WSDOT, city police departments, OpenStreetMap, Valhalla).
+        Estimates carry uncertainty — see <a href="#" id="about-link">Sources &amp; methodology</a>.
+      </footer>
+    </aside>
+
+    <main id="map-wrap">
+      <div id="map" role="application" aria-label="Interactive map of Washington state"></div>
+      <div id="legend-host"></div>
+      <div id="toast-host"></div>
+    </main>
+  </div>
+
+  <div id="about-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-label="Sources and methodology">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>Sources &amp; methodology</h2>
+        <button id="about-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body" id="sources-content">
+        <p class="modal-intro">Everything on this map is fetched live from public, authoritative services — nothing is
+        pre-baked except a bundled fallback copy of county boundaries. Layers note their exact source and vintage in
+        their legend or status line.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+          crossorigin="anonymous"></script>
+  <script>window.L || document.write('<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"><\/script>')</script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"
+          integrity="sha384-eXVCORTRlv4FUUgS/xmOyr66XBVraen8ATNLMESp92FKXLAMiKkerixTiBvXriZr"
+          crossorigin="anonymous"></script>
+  <script>(window.L && L.markerClusterGroup) || document.write('<script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" integrity="sha384-eXVCORTRlv4FUUgS/xmOyr66XBVraen8ATNLMESp92FKXLAMiKkerixTiBvXriZr" crossorigin="anonymous"><\/script>')</script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"
+          integrity="sha384-mFKkGiGvT5vo1fEyGCD3hshDdKmW3wzXW/x+fWriYJArD0R3gawT6lMvLboM22c0"
+          crossorigin="anonymous"></script>
+  <script>(window.L && L.heatLayer) || document.write('<script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js" integrity="sha384-mFKkGiGvT5vo1fEyGCD3hshDdKmW3wzXW/x+fWriYJArD0R3gawT6lMvLboM22c0" crossorigin="anonymous"><\/script>')</script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/util.js"></script>
+  <script src="assets/js/layers/choropleth.js"></script>
+  <script src="assets/js/layers/amenities.js"></script>
+  <script src="assets/js/layers/transit.js"></script>
+  <script src="assets/js/layers/crime.js"></script>
+  <script src="assets/js/layers/drivetime.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

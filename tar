@@ -1,0 +1,6 @@
+git clone https://github.com/justin-tran1/justin-tran1.github.io.git
+cd justin-tran1.github.io
+tar xzf /path/to/washington-explorer.tar.gz --strip-components=1
+git add -A
+git commit -m "Add Washington Explorer mapping app"
+git push origin main

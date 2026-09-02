@@ -14,6 +14,7 @@
     counties: null, countiesSource: null, countiesPromise: null,
     tractCache: new Map(), // GEOID -> GeoJSON feature
     tractIndex: null, tractIndexPromise: null, // statewide centroids + land area
+    tractIndexById: null, // GEOID -> index entry
 
     async loadCounties() {
       if (this.counties) return this.counties;
@@ -55,6 +56,7 @@
       const bounds = L.latLngBounds([wa.south, wa.west], [wa.north, wa.east]);
       this.tractIndexPromise = U.tigerweb.tractCentroidsInEnvelope(bounds).then(pts => {
         this.tractIndex = pts;
+        this.tractIndexById = new Map(pts.map(p => [p.geoid, p]));
         return pts;
       });
       this.tractIndexPromise.catch(() => { this.tractIndexPromise = null; });
@@ -62,11 +64,8 @@
     },
     alandOf(geoid) {
       if (this.tractCache.has(geoid)) return this.tractCache.get(geoid).properties.AREALAND;
-      if (this.tractIndex) {
-        const hit = this.tractIndex.find(p => p.geoid === geoid);
-        if (hit) return hit.aland;
-      }
-      return null;
+      const hit = this.tractIndexById && this.tractIndexById.get(geoid);
+      return hit ? hit.aland : null;
     }
   };
   WAMAP.geoStore = geoStore;
@@ -201,6 +200,14 @@
         const q = await computeBreaks(level, acs);
         if (token !== renderToken || !state.enabled) return;
 
+        // Panning without new tracts (or a metric/level change) needs no redraw.
+        const renderKey = [level, state.metric.id, acs.vintage, features.length].join('|');
+        if (state.layer && renderKey === state.renderKey) {
+          setStatus(statusText(acs, level, features.length), 'ok');
+          return;
+        }
+        state.renderKey = renderKey;
+
         if (state.layer) { map.removeLayer(state.layer); state.layer = null; }
         state.level = level;
         state.layer = L.geoJSON({ type: 'FeatureCollection', features }, {
@@ -235,9 +242,7 @@
         }).addTo(map);
         state.layer.bringToBack();
         renderLegend(q, acs, level);
-        const n = features.length;
-        setStatus(`ACS 5-Year ${acs.span} · ${n.toLocaleString()} ${level === 'tract' ? 'tracts loaded' : 'counties'}`
-          + (level === 'county' && geoStore.countiesSource === 'bundled' ? ' (bundled boundaries)' : ''), 'ok');
+        setStatus(statusText(acs, level, features.length), 'ok');
         state.lastError = null;
       } catch (err) {
         if (token !== renderToken) return;
@@ -245,6 +250,11 @@
         setStatus('Could not load data: ' + err.message, 'err');
         WAMAP.toast('Area data unavailable right now (' + err.message + ')', 'critical');
       }
+    }
+
+    function statusText(acs, level, n) {
+      return `ACS 5-Year ${acs.span} · ${n.toLocaleString()} ${level === 'tract' ? 'tracts loaded' : 'counties'}`
+        + (level === 'county' && geoStore.countiesSource === 'bundled' ? ' (bundled boundaries)' : '');
     }
 
     function profileHTML(geoid, feature, acs) {
@@ -316,6 +326,7 @@
         } else {
           renderToken++;
           if (state.layer) { map.removeLayer(state.layer); state.layer = null; }
+          state.renderKey = null;
           legendBox.style.display = 'none';
           setStatus('Off');
         }

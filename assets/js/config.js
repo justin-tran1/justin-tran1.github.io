@@ -81,7 +81,9 @@
     roots: [
       'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2024',
       'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2023',
-      'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2022'
+      'https://tigerweb.geo.census.gov/arcgis/rest/services/Generalized_ACS2022',
+      // Detailed (non-generalized) current-vintage services as a last resort.
+      'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb'
     ],
     tractService: 'Tracts_Blocks/MapServer',
     tractLayerName: /census tracts/i,
@@ -241,11 +243,24 @@
         id: 'seattle', label: 'Seattle', type: 'socrata',
         domains: ['https://data.seattle.gov', 'https://cos-data.seattle.gov'],
         dataset: 'tazs-3rd5',
-        fields: {
-          date: 'offense_start_datetime', reported: 'report_datetime',
-          offense: 'offense', parent: 'offense_parent_group',
-          lat: 'latitude', lon: 'longitude', addr: '_100_block_address', area: 'mcpp'
+        // SPD has republished this dataset with new column names. Candidates
+        // are matched against the live column list (first existing name wins;
+        // every existing "offense" column feeds classification).
+        fieldCandidates: {
+          date: ['offense_date', 'offense_start_datetime', 'report_date_time', 'report_datetime'],
+          offense: ['nibrs_offense_code_description', 'offense', 'offense_sub_category', 'offense_category',
+            'offense_parent_group', 'nibrs_crime_against_category', 'crime_against_category'],
+          lat: ['latitude'], lon: ['longitude'],
+          addr: ['block_address', '_100_block_address'],
+          area: ['neighborhood', 'mcpp']
         },
+        // Known schemas, tried in order only if the metadata endpoint is unreachable.
+        schemas: [
+          { date: 'offense_date', offense: ['nibrs_offense_code_description', 'offense_category'],
+            lat: 'latitude', lon: 'longitude', addr: 'block_address', area: 'neighborhood' },
+          { date: 'offense_start_datetime', offense: ['offense', 'offense_parent_group'],
+            lat: 'latitude', lon: 'longitude', addr: '_100_block_address', area: 'mcpp' }
+        ],
         link: 'https://data.seattle.gov/Public-Safety/SPD-Crime-Data-2008-Present/tazs-3rd5',
         note: 'Seattle PD NIBRS incident reports; locations generalized to the 100 block.'
       },

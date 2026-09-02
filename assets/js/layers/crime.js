@@ -138,25 +138,58 @@
     }
     function isoDay(d) { return d.toISOString().slice(0, 10); }
 
+    // Column names are resolved against the dataset's live metadata so the
+    // adapter survives SPD's periodic schema changes; known schemas are the
+    // fallback when metadata cannot be fetched.
+    async function resolveSocrataSchemas(city) {
+      if (city.schemas) return city.schemas;
+      const cands = city.cfg.fieldCandidates;
+      try {
+        const cols = new Set(await U.socrataColumns(city.cfg.domains, city.cfg.dataset));
+        const pick = names => names.find(n => cols.has(n)) || null;
+        const live = {
+          date: pick(cands.date), lat: pick(cands.lat), lon: pick(cands.lon),
+          addr: pick(cands.addr), area: pick(cands.area),
+          offense: cands.offense.filter(n => cols.has(n)).slice(0, 4)
+        };
+        if (live.date && live.lat && live.lon && live.offense.length) {
+          city.schemas = [live];
+          return city.schemas;
+        }
+      } catch (e) { /* metadata unavailable — fall back to known schemas */ }
+      city.schemas = city.cfg.schemas;
+      return city.schemas;
+    }
+
     async function fetchSeattle(city) {
-      const f = city.cfg.fields;
+      const schemas = await resolveSocrataSchemas(city);
       const since = isoDay(sinceDate());
-      const res = await U.socrataQuery(city.cfg.domains, city.cfg.dataset, {
-        $select: [f.date, f.offense, f.parent, f.lat, f.lon, f.addr, f.area].join(','),
-        $where: `${f.date} >= '${since}'`,
-        $order: `${f.date} DESC`
-      }, { maxRows: CFG.CRIME.maxPerCity });
+      let res = null, f = null, lastErr = null;
+      for (const schema of schemas) {
+        try {
+          res = await U.socrataQuery(city.cfg.domains, city.cfg.dataset, {
+            $select: [schema.date, ...schema.offense, schema.lat, schema.lon, schema.addr, schema.area].filter(Boolean).join(','),
+            $where: `${schema.date} >= '${since}'`,
+            $order: `${schema.date} DESC`
+          }, { maxRows: CFG.CRIME.maxPerCity });
+          f = schema;
+          break;
+        } catch (err) { lastErr = err; }
+      }
+      if (!res) throw lastErr || new Error('query failed');
+      city.schemas = [f]; // remember the schema that worked
       const incidents = [];
       let noCoords = 0;
       for (const r of res.rows) {
         const lat = parseFloat(r[f.lat]), lon = parseFloat(r[f.lon]);
         if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) < 1) { noCoords++; continue; }
-        const cat = classify((r[f.offense] || '') + '||' + (r[f.parent] || ''));
+        const texts = f.offense.map(k => r[k]).filter(Boolean);
+        const cat = classify(texts.join('||'));
         incidents.push({
           lat, lon, catId: cat.id, group: cat.group,
-          offense: r[f.offense] || r[f.parent] || 'Offense',
+          offense: texts[0] || 'Offense',
           date: r[f.date] ? new Date(r[f.date]) : null,
-          addr: r[f.addr] || r[f.area] || '', cityId: city.cfg.id
+          addr: (f.addr && r[f.addr]) || (f.area && r[f.area]) || '', cityId: city.cfg.id
         });
       }
       return { incidents, truncated: res.truncated, noCoords };

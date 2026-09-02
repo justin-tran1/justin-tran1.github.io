@@ -180,8 +180,10 @@
         placeMarker();
         state.lastResult = { bands };
         renderLegend();
-        const fitLayer = L.geoJSON({ type: 'FeatureCollection', features: feats });
-        map.fitBounds(fitLayer.getBounds().pad(0.12));
+        if (state.fitOnGenerate) {
+          const fitLayer = L.geoJSON({ type: 'FeatureCollection', features: feats });
+          map.fitBounds(fitLayer.getBounds().pad(0.12));
+        }
         setStatus('Drive-time bands for ' + (state.origin.label || 'origin'), 'ok');
         try {
           renderStats(await computeStats(bands));
@@ -208,7 +210,7 @@
       }).bindTooltip('Drive-time origin (drag to move)');
       state.marker.on('dragend', () => {
         const ll = state.marker.getLatLng();
-        setOrigin(ll.lat, ll.lng, ll.lat.toFixed(4) + ', ' + ll.lng.toFixed(4));
+        setOrigin(ll.lat, ll.lng, ll.lat.toFixed(4) + ', ' + ll.lng.toFixed(4), { fit: false });
       });
       group.addLayer(state.marker);
     }
@@ -224,12 +226,15 @@
         state.origin = null;
         originLine.innerHTML = '<em>No origin set</em>';
         setStatus('Set an origin to compute drive times.');
+        if (WAMAP.urlState) WAMAP.urlState.update();
       }
     }
 
-    function setOrigin(lat, lon, label) {
+    function setOrigin(lat, lon, label, opts) {
+      state.fitOnGenerate = !(opts && opts.fit === false); // shared links and marker drags keep the current view
       state.origin = { lat, lon, label: label || (lat.toFixed(4) + ', ' + lon.toFixed(4)) };
       originLine.innerHTML = 'Origin: <strong>' + U.escapeHTML(state.origin.label) + '</strong>';
+      if (WAMAP.urlState) WAMAP.urlState.update();
       const cardToggle = card.querySelector('.card-toggle input');
       if (cardToggle && !cardToggle.checked) { cardToggle.checked = true; cardToggle.dispatchEvent(new Event('change')); }
       generate();
@@ -250,6 +255,7 @@
     const api = {
       id: 'drivetime',
       setOrigin,
+      getOrigin() { return state.origin; },
       get enabled() { return map.hasLayer(group); },
       setEnabled(on) {
         if (on) {

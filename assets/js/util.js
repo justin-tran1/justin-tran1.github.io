@@ -199,6 +199,18 @@
     }
     throw lastErr || new Error('Socrata query failed');
   }
+  /** Live column names of a Socrata dataset (view metadata endpoint). */
+  async function socrataColumns(domains, dataset) {
+    let lastErr;
+    for (const domain of domains) {
+      try {
+        const meta = await fetchJSON(`${domain}/api/views/${dataset}.json`, { timeout: 20000 });
+        const cols = (meta.columns || []).map(c => c.fieldName).filter(Boolean);
+        if (cols.length) return cols;
+      } catch (err) { lastErr = err; }
+    }
+    throw lastErr || new Error('no column metadata');
+  }
 
   // -------------------------------------------------------------- overpass
   const overpass = {
@@ -529,6 +541,6 @@
 
   WAMAP.util = {
     $, $$, el, escapeHTML, fmt, debounce, store, fetchJSON, qs,
-    arcgis, socrataQuery, overpass, censusStore, tigerweb, geo, geocode
+    arcgis, socrataQuery, socrataColumns, overpass, censusStore, tigerweb, geo, geocode
   };
 })();

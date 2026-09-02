@@ -252,6 +252,90 @@
       });
     }
 
+    // ------------------------------------------- shareable URL state (#hash)
+    // View, basemap, active layers, choropleth metrics and the drive-time
+    // origin round-trip through the URL so a link restores the analysis.
+    function serializeState() {
+      const c = map.getCenter();
+      const parts = [`map=${c.lat.toFixed(5)}/${c.lng.toFixed(5)}/${map.getZoom()}`];
+      const bm = U.$('input[name="basemap"]:checked');
+      if (bm && bm.value !== CFG.BASEMAPS[0].id) parts.push('bm=' + bm.value);
+      const on = Object.keys(layers).filter(id => {
+        const t = U.$('#card-' + id + ' .card-toggle input');
+        return t && t.checked;
+      });
+      if (on.length) parts.push('layers=' + on.join(','));
+      const demoSel = U.$('#card-demographics select.input');
+      if (demoSel && demoSel.value !== CFG.DEMO_METRICS[0].id) parts.push('demo=' + demoSel.value);
+      const insSel = U.$('#card-insurance select.input');
+      if (insSel && insSel.value !== CFG.INSURANCE_METRICS[0].id) parts.push('ins=' + insSel.value);
+      const origin = WAMAP.driveTime.getOrigin();
+      if (origin) parts.push(`dt=${origin.lat.toFixed(5)},${origin.lon.toFixed(5)}`);
+      return '#' + parts.join('&');
+    }
+    const urlState = {
+      updateNow() {
+        const h = serializeState();
+        if (h === location.hash) return;
+        try { history.replaceState(null, '', h); } catch (e) { location.hash = h; }
+      },
+      parse() {
+        const out = {};
+        for (const part of location.hash.replace(/^#/, '').split('&')) {
+          if (!part) continue;
+          const i = part.indexOf('=');
+          if (i > 0) out[decodeURIComponent(part.slice(0, i))] = decodeURIComponent(part.slice(i + 1));
+        }
+        return out;
+      }
+    };
+    urlState.update = U.debounce(() => urlState.updateNow(), 300);
+    WAMAP.urlState = urlState;
+
+    (function restoreFromURL() {
+      const st = urlState.parse();
+      if (st.map) {
+        const [lat, lng, z] = st.map.split('/').map(Number);
+        if (isFinite(lat) && isFinite(lng)) map.setView([lat, lng], isFinite(z) ? z : map.getZoom(), { animate: false });
+      }
+      if (st.bm) {
+        const bmCfg = CFG.BASEMAPS.find(b => b.id === st.bm);
+        const input = document.getElementById('bm-' + st.bm);
+        if (bmCfg && input) { input.checked = true; setBasemap(bmCfg); }
+      }
+      const restoreSelect = (cardId, value) => {
+        const sel = U.$('#card-' + cardId + ' select.input');
+        if (sel && value && Array.from(sel.options).some(o => o.value === value)) {
+          sel.value = value;
+          sel.dispatchEvent(new Event('change'));
+        }
+      };
+      restoreSelect('demographics', st.demo);
+      restoreSelect('insurance', st.ins);
+      if (st.layers) {
+        for (const id of st.layers.split(',')) {
+          const t = U.$('#card-' + id + ' .card-toggle input');
+          if (t && !t.checked) { t.checked = true; t.dispatchEvent(new Event('change')); }
+        }
+      }
+      if (st.dt) {
+        const [lat, lon] = st.dt.split(',').map(Number);
+        if (isFinite(lat) && isFinite(lon)) WAMAP.driveTime.setOrigin(lat, lon, null, { fit: false });
+      }
+    })();
+
+    map.on('moveend', () => urlState.update());
+    U.$('#sidebar').addEventListener('change', () => urlState.update());
+    U.$('#share-btn').addEventListener('click', async () => {
+      urlState.updateNow();
+      try {
+        await navigator.clipboard.writeText(location.href);
+        WAMAP.toast('Link copied — it restores this view, basemap, layers and drive-time origin.', 'good');
+      } catch (e) {
+        WAMAP.toast('Could not access the clipboard — copy the address bar URL instead.', 'warning');
+      }
+    });
+
     // ------------------------------------------------------ about / modal
     const modal = U.$('#about-modal');
     const srcHost = U.$('#sources-content');

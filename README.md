@@ -21,6 +21,7 @@ the default branch.**
 | Transit layer | Statewide routes and stops from WSDOT's consolidated GTFS (all WA agencies), styled by mode (bus, light rail/streetcar, rail, ferry), plus WSF ferry routes |
 | Crime layer | Incident-level police reports for Seattle, Tacoma, and Spokane with per-category filters (homicide, assault, robbery, sex offenses, burglary, larceny/theft, motor-vehicle theft, arson, vandalism, fraud, drugs, weapons, DUI, trespass…), 30/90/180/365-day ranges, clustered points or heat map, live in-view counts |
 | Drive-time tool | 5/10/15-minute drive-time areas (isochrones) around any address, pin, or clicked point, with estimated population, households, and income inside each band |
+| Shareable links | The URL hash tracks view, basemap, active layers, choropleth metrics, and drive-time origin; "Copy link" hands a colleague the exact analysis |
 
 ## Data sources (and why they were chosen)
 
@@ -73,10 +74,13 @@ scripts/smoke-test.mjs     headless-Chromium integration test with mocked API fi
 Leaflet 1.9.4 + markercluster + heat load from pinned CDN versions (unpkg, jsDelivr
 fallback) with SRI integrity hashes computed from the exact npm tarballs.
 
-Resilience: ACS vintages and TIGERweb services are tried newest-first; ArcGIS layers and
-fields are discovered by introspection rather than hardcoded ids; Overpass rotates endpoints;
-Seattle's portal has domain failover; NCES/WSDOT fall back to OSM. Every layer shows its own
-source/status line, and failures degrade per-layer with a visible message.
+Resilience: ACS vintages and TIGERweb services are tried newest-first (generalized
+boundaries, then the detailed current-vintage service); ArcGIS layers and fields are
+discovered by introspection rather than hardcoded ids; the Seattle adapter resolves column
+names from the dataset's live metadata (SPD has republished the dataset with new columns
+before) and has domain failover; Overpass rotates endpoints; NCES/WSDOT fall back to OSM.
+Every layer shows its own source/status line, and failures degrade per-layer with a
+visible message.
 
 ## Development
 

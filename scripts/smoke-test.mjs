@@ -70,12 +70,17 @@ const SEATTLE_ROWS = [
   ['Burglary/Breaking & Entering', 'BURGLARY/BREAKING&ENTERING'], ['Simple Assault', 'ASSAULT OFFENSES'],
   ['Robbery', 'ROBBERY'], ['Destruction/Damage/Vandalism of Property', 'DESTRUCTION/DAMAGE/VANDALISM OF PROPERTY'],
   ['Murder & Nonnegligent Manslaughter', 'HOMICIDE OFFENSES'], ['Drug/Narcotic Violations', 'DRUG/NARCOTIC OFFENSES']
-].map(([off, parent], i) => ({
-  offense_start_datetime: new Date(now - (i + 1) * 86400000).toISOString(),
-  offense: off, offense_parent_group: parent,
+].map(([off, cat], i) => ({ // SPD's current (republished) column schema
+  offense_date: new Date(now - (i + 1) * 86400000).toISOString(),
+  nibrs_offense_code_description: off, offense_category: cat,
   latitude: String(47.6 + i * 0.005), longitude: String(-122.33 - i * 0.005),
-  _100_block_address: (100 + i) + ' BLOCK OF PINE ST', mcpp: 'DOWNTOWN'
+  block_address: (100 + i) + ' BLOCK OF PINE ST', neighborhood: 'DOWNTOWN'
 }));
+const SEATTLE_COLUMNS = ['report_number', 'report_date_time', 'offense_id', 'offense_date', 'nibrs_group_a_b',
+  'nibrs_crime_against_category', 'offense_sub_category', 'shooting_type_group', 'block_address', 'latitude',
+  'longitude', 'beat', 'precinct', 'sector', 'neighborhood', 'reporting_area', 'offense_category',
+  'nibrs_offense_code_description', 'nibrs_offense_code'];
+let seattleSelect = null; // captured from the live query for assertions
 const TACOMA_POINTS = {
   type: 'FeatureCollection',
   features: [0, 1, 2].map(i => ({
@@ -167,7 +172,13 @@ function handle(url, method, postData) {
   }
   // Socrata (Seattle)
   if (u.hostname === 'data.seattle.gov' || u.hostname === 'cos-data.seattle.gov') {
-    if (u.pathname.includes('tazs-3rd5')) return jsonRes(u.searchParams.get('$offset') === '0' ? SEATTLE_ROWS : []);
+    if (u.pathname.startsWith('/api/views/')) return jsonRes({ id: 'tazs-3rd5', columns: SEATTLE_COLUMNS.map(n => ({ fieldName: n })) });
+    if (u.pathname.includes('tazs-3rd5')) {
+      seattleSelect = u.searchParams.get('$select');
+      const sel = (seattleSelect || '').split(',');
+      if (!sel.includes('offense_date')) return { status: 400, contentType: 'application/json', body: JSON.stringify({ error: true, message: 'No such column' }) };
+      return jsonRes(u.searchParams.get('$offset') === '0' ? SEATTLE_ROWS : []);
+    }
     return jsonRes([]);
   }
   // Tacoma item + service
@@ -320,6 +331,8 @@ await setToggle('card-crime', true);
 await page.waitForTimeout(2000);
 const chipSeattle = await page.locator('#crime-city-seattle .chip-count').textContent();
 assert(chipSeattle.trim() === '8', 'Seattle chip count = 8, got "' + chipSeattle + '"');
+assert(seattleSelect && seattleSelect.includes('nibrs_offense_code_description') && !seattleSelect.includes('offense_start_datetime'),
+  'Seattle adapter resolved the live column schema: ' + seattleSelect);
 const chipTacoma = await page.locator('#crime-city-tacoma .chip-count').textContent();
 assert(chipTacoma.trim() === '3', 'Tacoma chip count = 3 (item->service resolution), got "' + chipTacoma + '"');
 const chipSpokane = await page.locator('#crime-city-spokane .chip-count').textContent();
@@ -399,6 +412,25 @@ await page.locator('#about-btn').click();
 assert(await page.locator('#about-modal').isVisible(), 'sources modal opens');
 assert(/Valhalla/.test(await page.locator('#sources-content').textContent()), 'sources content populated');
 await page.locator('#about-close').click();
+
+console.log('· shareable URL state');
+await page.locator('#card-insurance select.input').selectOption('insured');
+await page.waitForTimeout(600);
+const hash = await page.evaluate(() => location.hash);
+assert(/map=/.test(hash) && /layers=/.test(hash), 'hash carries view + layers: ' + hash);
+assert(/ins=insured/.test(hash), 'hash carries the insurance metric');
+assert(/dt=/.test(hash), 'hash carries the drive-time origin');
+const zoomBefore = await page.evaluate(() => WAMAP.map.getZoom());
+await page.goto(BASE + '/' + hash, { waitUntil: 'domcontentloaded' });
+await page.waitForTimeout(2600);
+assert(await page.locator('#card-insurance .card-toggle input').isChecked(), 'insurance layer restored from URL');
+assert(await page.locator('#card-transit .card-toggle input').isChecked(), 'transit layer restored from URL');
+assert(!(await page.locator('#card-demographics .card-toggle input').isChecked()), 'demographics stays off (was off in the link)');
+assert((await page.locator('#card-insurance select.input').inputValue()) === 'insured', 'insurance metric restored from URL');
+assert(/Origin:/.test(await page.locator('#card-drivetime .origin-line').textContent()), 'drive-time origin restored from URL');
+assert(await page.locator('.dt-table tbody tr').count() === 3, 'drive-time bands recomputed after restore');
+const zoomAfter = await page.evaluate(() => WAMAP.map.getZoom());
+assert(zoomAfter === zoomBefore, `map view restored without refit (zoom ${zoomBefore} -> ${zoomAfter})`);
 
 await page.screenshot({ path: 'smoke.png', fullPage: false });
 await browser.close();

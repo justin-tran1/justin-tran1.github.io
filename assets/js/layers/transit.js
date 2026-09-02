@@ -113,7 +113,8 @@
           const sInfo = await U.arcgis.layerInfo(stopsUrl);
           stopFields = {
             name: findField(sInfo.fields, [/^stop_?name$/i, /stop_?name/i, /^name$/i]),
-            agency: findField(sInfo.fields, [/^agency_?name$/i, /agency/i])
+            agency: findField(sInfo.fields, [/^agency_?name$/i, /agency/i]),
+            freq: findField(sInfo.fields, [/freq.*(level|class|cat)/i, /frequen/i]) // WSDOT frequent-transit study
           };
         }
         state.wsdot = { routesUrl, stopsUrl, routeFields, stopFields };
@@ -218,9 +219,11 @@
         const p = f.properties || {};
         const name = (w.stopFields && w.stopFields.name && p[w.stopFields.name]) || 'Transit stop';
         const agency = (w.stopFields && w.stopFields.agency && p[w.stopFields.agency]) || '';
+        const freq = w.stopFields && w.stopFields.freq && p[w.stopFields.freq] != null ? p[w.stopFields.freq] : '';
         markers.push(L.marker([lat, lon], { icon: stopIcon() }).bindPopup(
           `<div class="popup-poi"><h3>${U.escapeHTML(name)}</h3>
            <div class="popup-cat">🚏 Transit stop</div>${agency ? `<div>Agency: ${U.escapeHTML(agency)}</div>` : ''}
+           ${freq !== '' ? `<div>Service frequency: ${U.escapeHTML(String(freq))}</div>` : ''}
            <div class="popup-src">Source: WSDOT statewide GTFS</div></div>`, { maxWidth: 280 }));
       }
       stopsCluster.addLayers(markers);
@@ -248,8 +251,8 @@
 
     // ---- ferries ---------------------------------------------------------
     async function loadFerries() {
-      if (state.ferriesLoaded) return;
-      state.ferriesLoaded = true;
+      if (state.ferriesLoaded || state.ferryAttempts >= 3) return;
+      state.ferryAttempts = (state.ferryAttempts || 0) + 1;
       try {
         const info = await U.arcgis.serviceInfo(CFG.TRANSIT.ferryService);
         const lyr = (info.layers || [])[0];
@@ -269,7 +272,8 @@
               <div class="popup-src">Source: WSDOT Ferry Routes</div></div>`);
           }
         }));
-      } catch (e) { /* ferries also appear via OSM fallback routes */ }
+        state.ferriesLoaded = true;
+      } catch (e) { /* retried on the next refresh (up to 3 attempts); OSM routes also carry ferries */ }
     }
 
     // ---- orchestration ---------------------------------------------------

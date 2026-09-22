@@ -1,37 +1,94 @@
-/* Washington Explorer — application styles */
+/* Washington Explorer — application styles
+   CBRE brand palette. Light mode = white panels, CBRE Green as the accent.
+   Dark mode = CBRE Dark Green panels, Accent Green as the accent (the brand
+   reserves Accent Green for highlights, which is exactly this use).
+   Dark values are declared twice: once under the OS preference (guarded so an
+   explicit light choice still wins) and once under the [data-theme] stamp the
+   app writes, which must win in both directions. */
 
 :root {
-  --surface: #fcfcfb;
-  --plane: #f9f9f7;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --muted: #898781;
-  --hairline: #e1e0d9;
-  --baseline: #c3c2b7;
-  --accent: #2a78d6;
-  --accent-ink: #1c5cab;
-  --good: #0ca30c;
-  --warning: #b97f00;
-  --critical: #d03b3b;
-  --shadow: 0 6px 24px rgba(11, 11, 11, 0.12);
+  /* official CBRE brand values, for reference by name */
+  --cbre-green: #003f2d;
+  --cbre-accent-green: #17e88f;
+  --cbre-dark-green: #012a2d;
+  --cbre-dark-grey: #435254;
+  --cbre-light-grey: #cad1d3;
+  --cbre-celadon: #80bbad;
+  --cbre-cement: #7f8480;
+
+  /* resolved roles — light */
+  --surface: #ffffff;
+  --plane: #f6f6f6;
+  --ink: #003f2d;          /* headings: 12.0:1 on white */
+  --ink-2: #435254;        /* body:      8.2:1 */
+  --muted: #7f8480;        /* captions:  3.8:1 */
+  --hairline: #e3e7e8;
+  --baseline: #cad1d3;
+  --accent: #003f2d;
+  --accent-ink: #012a2d;
+  --accent-on: #ffffff;    /* text/glyphs drawn on an accent fill */
+  --pill-bg: rgba(255, 255, 255, 0.22);
+  --good: #28573c;
+  --warning: #8a6d0b;
+  --critical: #ad2a2a;
+  --pin: #003f2d;
+  --map-bg: #e8eceb;
+  --cluster-fill: rgba(0, 63, 45, 0.22);
+  --cluster-core: rgba(0, 63, 45, 0.88);
+  --swatch-ring: rgba(1, 42, 45, 0.12);
+  --shadow: 0 6px 24px rgba(1, 42, 45, 0.14);
   --radius: 10px;
   color-scheme: light;
 }
+
 @media (prefers-color-scheme: dark) {
-  :root {
-    --surface: #1a1a19;
-    --plane: #0d0d0d;
-    --ink: #ffffff;
-    --ink-2: #c3c2b7;
-    --muted: #898781;
-    --hairline: #2c2c2a;
-    --baseline: #383835;
-    --accent: #3987e5;
-    --accent-ink: #6da7ec;
-    --warning: #fab219;
-    --shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  :root:where(:not([data-theme="light"])) {
+    --surface: #012a2d;
+    --plane: #001a1d;
+    --ink: #ffffff;          /* 15.3:1 on CBRE Dark Green */
+    --ink-2: #c0d4cb;        /*  9.9:1 */
+    --muted: #96b3b6;        /*  6.9:1 */
+    --hairline: #1b383b;
+    --baseline: #2b484a;
+    --accent: #17e88f;       /*  9.5:1 */
+    --accent-ink: #80bbad;
+    --accent-on: #012a2d;
+    --pill-bg: rgba(1, 42, 45, 0.20);
+    --good: #17e88f;
+    --warning: #dbd99a;
+    --critical: #e8918d;
+    --pin: #17e88f;
+    --map-bg: #0d2b2c;
+    --cluster-fill: rgba(23, 232, 143, 0.20);
+    --cluster-core: rgba(23, 232, 143, 0.85);
+    --swatch-ring: rgba(255, 255, 255, 0.16);
+    --shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --surface: #012a2d;
+  --plane: #001a1d;
+  --ink: #ffffff;
+  --ink-2: #c0d4cb;
+  --muted: #96b3b6;
+  --hairline: #1b383b;
+  --baseline: #2b484a;
+  --accent: #17e88f;
+  --accent-ink: #80bbad;
+  --accent-on: #012a2d;
+  --pill-bg: rgba(1, 42, 45, 0.20);
+  --good: #17e88f;
+  --warning: #dbd99a;
+  --critical: #e8918d;
+  --pin: #17e88f;
+  --map-bg: #0d2b2c;
+  --cluster-fill: rgba(23, 232, 143, 0.20);
+  --cluster-core: rgba(23, 232, 143, 0.85);
+  --swatch-ring: rgba(255, 255, 255, 0.16);
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -63,6 +120,16 @@ body {
 }
 .icon-btn:hover { background: var(--plane); }
 
+/* theme switch */
+.theme-switch { display: inline-flex; border: 1px solid var(--hairline); border-radius: 999px; overflow: hidden; flex: 0 0 auto; }
+.theme-btn {
+  border: none; background: transparent; color: var(--ink-2);
+  font: inherit; font-size: 11.5px; padding: 5px 10px; cursor: pointer;
+}
+.theme-btn + .theme-btn { border-left: 1px solid var(--hairline); }
+.theme-btn:hover { background: var(--plane); }
+.theme-btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-on); font-weight: 600; }
+
 /* --------------------------------------------------------------- layout */
 #app { flex: 1; display: flex; min-height: 0; }
 #sidebar {
@@ -74,7 +141,7 @@ body {
   z-index: 1100;
 }
 #map-wrap { flex: 1; position: relative; min-width: 0; }
-#map { position: absolute; inset: 0; background: #cfd8dc; }
+#map { position: absolute; inset: 0; background: var(--map-bg); }
 #map.crosshair, .crosshair { cursor: crosshair !important; }
 .leaflet-container.crosshair .leaflet-interactive { cursor: crosshair !important; }
 
@@ -99,7 +166,7 @@ body {
 select.input { cursor: pointer; }
 
 .btn {
-  border: 1px solid var(--accent); background: var(--accent); color: #fff;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-on);
   padding: 8px 12px; border-radius: 8px; cursor: pointer; font: inherit; font-weight: 600;
   transition: filter .12s ease;
 }
@@ -108,10 +175,10 @@ select.input { cursor: pointer; }
 .btn.ghost:hover { background: var(--plane); filter: none; }
 .btn.mini { padding: 4px 8px; font-size: 12px; border-radius: 6px; }
 .btn.tool { font-size: 12.5px; padding: 7px 9px; }
-.btn.tool.active, .btn.active { outline: 2px solid var(--accent-ink); background: var(--accent-ink); color: #fff; border-color: var(--accent-ink); }
+.btn.tool.active, .btn.active { outline: 2px solid var(--accent-ink); background: var(--accent-ink); color: var(--accent-on); border-color: var(--accent-ink); }
 .small-btn { font-size: 12px; padding: 6px 10px; }
 .pill {
-  background: rgba(255,255,255,.25); border-radius: 999px; padding: 0 6px;
+  background: var(--pill-bg); border-radius: 999px; padding: 0 6px;
   font-size: 11px; min-width: 10px; display: inline-block;
 }
 .tool-row { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -127,16 +194,6 @@ select.input { cursor: pointer; }
 .search-item:hover, .search-item:focus { background: var(--plane); }
 .search-item.muted { color: var(--muted); cursor: default; }
 .search-src { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-/* -------------------------------------------------------------- basemap */
-.bm-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.bm-item {
-  display: inline-flex; align-items: center; gap: 6px;
-  border: 1px solid var(--hairline); border-radius: 999px; padding: 5px 10px;
-  font-size: 12.5px; cursor: pointer; color: var(--ink-2); background: var(--surface);
-}
-.bm-item:has(input:checked) { border-color: var(--accent); color: var(--ink); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); font-weight: 600; }
-.bm-item input { accent-color: var(--accent); margin: 0; }
 
 /* ---------------------------------------------------------- layer cards */
 .layer-card {
@@ -237,7 +294,7 @@ select.input { cursor: pointer; }
 .legend-title { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
 .legend-sub { color: var(--muted); margin-bottom: 5px; }
 .legend-row { display: flex; align-items: center; gap: 7px; padding: 1.5px 0; font-variant-numeric: tabular-nums; }
-.swatch { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 auto; border: 1px solid rgba(11,11,11,.1); }
+.swatch { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 auto; border: 1px solid var(--swatch-ring); }
 .legend-src { color: var(--muted); margin-top: 5px; font-size: 10.5px; }
 
 /* -------------------------------------------------------------- toasts */
@@ -268,18 +325,18 @@ select.input { cursor: pointer; }
 }
 .stop-dot {
   display: block; width: 10px; height: 10px; border-radius: 50%;
-  background: #2a78d6; border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,.4);
+  background: var(--accent); border: 2px solid #fff; box-shadow: 0 0 3px rgba(0,0,0,.4);
 }
 .search-pin { font-size: 30px; line-height: 1; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
 .dt-origin {
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 50%;
-  background: #fff; border: 2.5px solid #1c5cab; font-size: 15px;
+  background: #fff; border: 2.5px solid var(--cbre-green); font-size: 15px;
   box-shadow: 0 1px 5px rgba(0,0,0,.4);
 }
 .user-pin {
   display: block; width: 20px; height: 20px;
-  background: #e34948; border: 2px solid #fff;
+  background: var(--pin); border: 2px solid #fff;
   border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
   box-shadow: 0 1px 4px rgba(0,0,0,.45);
 }
@@ -295,13 +352,28 @@ select.input { cursor: pointer; }
   box-shadow: var(--shadow); font-size: 12px;
 }
 .leaflet-tooltip-top:before { border-top-color: var(--hairline); }
+.leaflet-bar { border-color: var(--hairline); }
 .leaflet-bar a { background: var(--surface); color: var(--ink); border-bottom-color: var(--hairline); }
 .leaflet-bar a:hover { background: var(--plane); }
-.leaflet-control-attribution { background: color-mix(in srgb, var(--surface) 80%, transparent); color: var(--ink-2); font-size: 10px; }
+/* vendor rule is `.leaflet-bar a.leaflet-disabled` (background #f4f4f4,
+   color #bbb) — without this it renders as a near-white button inside a
+   CBRE Dark Green zoom bar at min/max zoom. */
+.leaflet-bar a.leaflet-disabled { background: var(--plane); color: var(--muted); }
+/* Leaflet ships these with a hardcoded white background at
+   `.leaflet-container .x` specificity, so they must be overridden at the
+   same weight or they stay white on the CBRE dark green surface. */
+.leaflet-container .leaflet-control-attribution,
+.leaflet-container .leaflet-control-scale-line {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--ink-2);
+}
+.leaflet-control-attribution { font-size: 10px; }
 .leaflet-control-attribution a { color: var(--accent-ink); }
-.marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background-color: rgba(42, 120, 214, 0.25); }
+.leaflet-control-scale-line { border-color: var(--baseline); text-shadow: none; }
+.leaflet-control-scale-line:not(:first-child) { border-top-color: var(--baseline); }
+.marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background-color: var(--cluster-fill); }
 .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
-  background-color: rgba(28, 92, 171, 0.85); color: #fff; font-weight: 600;
+  background-color: var(--cluster-core); color: var(--accent-on); font-weight: 600;
 }
 
 /* popups */
@@ -323,7 +395,7 @@ select.input { cursor: pointer; }
 
 /* -------------------------------------------------------------- modal */
 .modal {
-  position: fixed; inset: 0; background: rgba(11,11,11,.55);
+  position: fixed; inset: 0; background: rgba(1, 42, 45, 0.62);
   display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 18px;
 }
 .modal-box {

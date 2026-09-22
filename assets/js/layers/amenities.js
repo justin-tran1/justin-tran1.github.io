@@ -34,7 +34,7 @@
       cb.addEventListener('change', () => { cat.on = cb.checked; syncCategory(cid); refresh(); });
       const label = U.el('label', { for: 'amen-' + cid, class: 'check-item' }, [
         cb,
-        U.el('span', { class: 'cat-dot', style: 'background:' + cat.cfg.color }),
+        U.el('span', { class: 'cat-dot', style: 'background:' + CFG.PALETTE.amenities[cat.cfg.colorToken] }),
         U.el('span', { text: cat.cfg.emoji + ' ' + cat.cfg.label }),
         U.el('span', { class: 'cat-count', id: 'amen-count-' + cid, text: '' })
       ]);
@@ -59,7 +59,7 @@
     function makeIcon(cat) {
       return L.divIcon({
         className: 'poi-icon',
-        html: `<span class="poi-chip" style="border-color:${cat.cfg.color}">${cat.cfg.emoji}</span>`,
+        html: `<span class="poi-chip" style="border-color:${CFG.PALETTE.amenities[cat.cfg.colorToken]}">${cat.cfg.emoji}</span>`,
         iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -12]
       });
     }

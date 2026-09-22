@@ -87,8 +87,10 @@
 
   // --------------------------------------------------------------- engine
   WAMAP.createChoropleth = function (opts) {
-    const { id, metrics, ramp, map, card } = opts;
-    const NO_DATA = '#d7d6cf';
+    const { id, metrics, rampKey, map, card } = opts;
+    // Colors resolve per theme at draw time, never captured at construction.
+    const ramp = () => U.theme.colors()[rampKey];
+    const noData = () => U.theme.colors().noData;
     const renderer = L.canvas({ padding: 0.3 });
 
     const state = {
@@ -168,14 +170,15 @@
       } else {
         values = Object.values(acs.rows).map(r => state.metric.value(r));
       }
-      const q = U.geo.quantileBreaks(values, ramp.length);
+      const q = U.geo.quantileBreaks(values, ramp().length);
       state.breaksCache[key] = q;
       return q;
     }
 
     function colorFor(v, q) {
-      if (v == null || !q) return NO_DATA;
-      return ramp[Math.min(U.geo.binIndex(v, q.breaks), ramp.length - 1)];
+      const steps = ramp();
+      if (v == null || !q) return noData();
+      return steps[Math.min(U.geo.binIndex(v, q.breaks), steps.length - 1)];
     }
 
     // ---- rendering ------------------------------------------------------
@@ -222,7 +225,7 @@
           onEachFeature: (f, lyr) => {
             const geoid = f.properties.GEOID;
             lyr.on('mouseover', () => {
-              lyr.setStyle({ weight: 2.5, color: '#0b0b0b' });
+              lyr.setStyle({ weight: 2.5, color: U.theme.colors().hoverOutline });
               if (lyr.bringToFront) lyr.bringToFront();
             });
             lyr.on('mouseout', () => state.layer && state.layer.resetStyle(lyr));
@@ -283,14 +286,14 @@
       if (!q) { legendBox.style.display = 'none'; return; }
       const f = v => U.fmt.by(state.metric.fmt, v);
       const stops = [q.min, ...q.breaks, q.max];
-      const rows = ramp.map((c, i) =>
+      const rows = ramp().map((c, i) =>
         `<div class="legend-row"><span class="swatch" style="background:${c}"></span>` +
         `<span>${f(stops[i])} – ${f(stops[i + 1])}</span></div>`).join('');
       legendBox.innerHTML =
         `<div class="legend-title">${U.escapeHTML(state.metric.label)}</div>` +
         `<div class="legend-sub">${level === 'tract' ? 'by census tract' : 'by county'} · quintiles statewide</div>` +
         rows +
-        `<div class="legend-row"><span class="swatch" style="background:${NO_DATA}"></span><span>No data</span></div>` +
+        `<div class="legend-row"><span class="swatch" style="background:${noData()}"></span><span>No data</span></div>` +
         `<div class="legend-src">ACS 5-Year ${acs.span}, U.S. Census Bureau</div>`;
       legendBox.style.display = '';
     }
@@ -302,6 +305,8 @@
       if (level === 'tract' || level !== state.level) render();
     }, 450);
     map.on('moveend zoomend', onMove);
+    // Restyle in place when the theme flips (ramp + no-data color change).
+    U.theme.onChange(() => { if (state.enabled) { state.renderKey = null; render(); } });
 
     metricSel.addEventListener('change', () => {
       state.metric = metrics.find(m => m.id === metricSel.value) || metrics[0];

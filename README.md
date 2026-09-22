@@ -5,14 +5,20 @@ amenities, transit, crime, and 5/10/15-minute drive-time analysis — all fetche
 public, authoritative data services. Pure static site (Leaflet + vanilla JS, no build step),
 designed to run on GitHub Pages.
 
-**Open `index.html` via any static web server, or visit the GitHub Pages URL once this is on
-the default branch.**
+**Live site:** https://justin-tran1.github.io/washington-state-demographics/ (once this is merged
+to the default branch). Locally, open `index.html` via any static web server.
+
+This repository is a GitHub Pages *project site*, so the app is served from the
+`/washington-state-demographics/` sub-path rather than the domain root. Every asset path in the
+app is relative, so it works unchanged at either location.
 
 ## Features
 
 | Feature | Details |
 |---|---|
-| Toggleable basemaps | OpenStreetMap Streets, CARTO Light/Dark, Esri World Imagery, Esri Topo |
+| Toggleable base maps | 16 keyless base maps in 5 groups: OpenStreetMap, OSM Humanitarian, Esri Streets/Light Gray/Dark Gray/Imagery/Topographic, USGS Imagery, Imagery+Topo, Topo, Shaded Relief, Hydrography, OpenTopoMap, OPNVKarte transit, CyclOSM, WSDOT Washington base |
+| Labels above data | Optional transparent reference layer drawn in its own pane above the choropleths, so place names stay readable through a fill |
+| CBRE theming | Official CBRE brand palette throughout, with an Auto / Light / Dark switch; dark mode uses CBRE Dark Green panels with Accent Green highlights |
 | Address search | U.S. Census Bureau Geocoder for street addresses, OSM Nominatim for places/POIs; jump-to with action popup |
 | Pin dropping | Pin mode (Esc to exit), draggable pins, reverse-geocoded labels, persisted in `localStorage` |
 | Demographics layer | Choropleth by county (statewide) or census tract (zoom 9+): population density, total population, median household income, median age, % bachelor's+, median home value, median gross rent, poverty rate, unemployment, owner-occupancy. Click any area for a full profile |
@@ -40,6 +46,7 @@ data is a fallback copy of county boundaries.
 | Crime — Spokane | [City of Spokane open GIS](https://my.spokanecity.org/opendata/gis/) CrimePoints service | Incident points from the city's open-data GIS |
 | Drive times | [Valhalla](https://github.com/valhalla/valhalla) routing engine on the public [FOSSGIS server](https://valhalla.openstreetmap.de) | Open-source isochrones over the OSM road network (road class, speed limits, turn costs). Free keyless services model **typical** conditions, not live congestion — the UI says so explicitly |
 | Geocoding | [Census Geocoder](https://geocoding.geo.census.gov/geocoder/) + [Nominatim](https://nominatim.org) | Census is the most accurate free geocoder for US street addresses; Nominatim covers places/POIs |
+| Base maps | USGS The National Map, Esri ArcGIS Online, OpenStreetMap + community servers, WSDOT | All keyless; see the licensing section below |
 
 There is no statewide *incident-level* crime feed — incident data is published city by city, so
 the crime layer covers cities with open police data (statewide agency totals are published
@@ -73,6 +80,54 @@ scripts/smoke-test.mjs     headless-Chromium integration test with mocked API fi
 
 Leaflet 1.9.4 + markercluster + heat load from pinned CDN versions (unpkg, jsDelivr
 fallback) with SRI integrity hashes computed from the exact npm tarballs.
+
+## Brand and colour
+
+The interface uses the official CBRE palette — CBRE Green `#003F2D`, Accent Green `#17E88F`,
+Dark Green `#012A2D`, Dark Grey `#435254`, plus the CBRE secondary and chart colours. Light
+mode is white panels with CBRE Green as the accent; dark mode is CBRE Dark Green panels with
+Accent Green as the accent, which matches the brand's "use Accent Green sparingly, for
+highlights" rule.
+
+Data ramps are **not** raw brand swatches. CBRE publishes a five-step sequential ramp
+(`#17E88F → #012A2D`), but it spans 46° of hue, so it fails a single-hue check and cannot
+carry a choropleth on its own. Every ramp here was instead generated in OKLCH at a CBRE brand
+hue with brand-matched chroma, then checked with the `dataviz` palette validator. Recorded
+results:
+
+| Role | Basis | Validator outcome |
+|---|---|---|
+| Demographics ramp | CBRE Green hue (167°), 6 steps | monotone lightness, ΔL gaps, single hue — pass, both themes |
+| Insurance ramp | Midnight hue (245°), 6 steps | same — pass, both themes; a different hue family so the two choropleths never read alike |
+| Crime heat | Negative-red hue (26°), 6 stops | monotone, single hue — pass |
+| Drive-time bands | Wheat hue (106°), 3 ordinal steps | full ordinal suite passes in both themes (2.24:1 on white, 2.65:1 on Dark Green). A third hue family on purpose: the bands are large translucent fills that can sit on top of a choropleth, so they must not share a hue with either ramp |
+| Crime groups | red / blue / olive at brand hues | all-pairs CVD and normal-vision floors pass in both themes (worst 17.3 deutan, 25.3 normal in dark) |
+| Amenity pins (10) | CBRE chart hues | worst *adjacent* pair ΔE 15.7; all-pairs cannot pass at ten categories, so emoji + label carry identity |
+| Transit modes (5) | CBRE chart hues | adjacent pairs pass in both themes; each mode also has its own dash pattern |
+
+For sequential ramps the step nearest the surface is allowed to recede — in a sequential
+encoding that step means "near zero". Where the validator warns, the mitigation is real and
+documented rather than waved away: colour is never the only channel, because CBRE's palette is
+deliberately muted and several brand hues sit closer together than a generic categorical
+palette would.
+
+## Base map licensing
+
+All 16 are keyless, but their terms differ and that matters for commercial use:
+
+- **USGS The National Map** (Imagery, Imagery+Topo, Topo, Shaded Relief, Hydrography) — U.S.
+  federal works in the public domain, no commercial restriction. The cleanest option here.
+- **Esri** (`server.arcgisonline.com`) — keyless, but these are legacy raster layers in Esri
+  Mature Support with cartography frozen around 2021; World Imagery is an explicit exception
+  and is still maintained. An organisation with an ArcGIS entitlement should repoint these at
+  its own keyed basemap service.
+- **OpenStreetMap and community servers** (OSM France, OpenTopoMap, MeMoMaps) — volunteer
+  funded; their usage policies ask that heavy or commercial traffic not lean on them.
+- **WSDOT** — Washington State agency service, published openly; Washington coverage only.
+- **CARTO was removed.** CARTO began requiring an API key on `basemaps.cartocdn.com` in late
+  August 2026 and now stamps anonymous tiles with an "API KEY REQUIRED" watermark while still
+  returning HTTP 200 — so `tileerror` never fires and the map just looks broken. CARTO's own
+  `basemap-styles` licence also restricts the tile services to enterprise customers.
 
 Resilience: ACS vintages and TIGERweb services are tried newest-first (generalized
 boundaries, then the detailed current-vintage service); ArcGIS layers and fields are

@@ -8,21 +8,87 @@
   const WAMAP = (window.WAMAP = window.WAMAP || {});
 
   // ---------------------------------------------------------------- palette
-  // Validated palette (single-hue sequential ramps, fixed categorical order,
-  // CVD-checked). Do not re-order categorical slots.
+  // CBRE brand palette. BRAND holds the official hex values exactly as
+  // published in the CBRE brand guidelines; every other color in this app is
+  // one of those values or a step derived from one of their OKLCH hues.
+  const BRAND = {
+    green: '#003F2D',          // CBRE Green — primary brand
+    accentGreen: '#17E88F',    // Accent Green — highlights only, "use sparingly"
+    darkGreen: '#012A2D',      // Dark Green — dark surfaces
+    darkGrey: '#435254',       // Dark Grey — body text
+    lightGrey: '#CAD1D3',      // Light Grey — borders, dividers
+    midnight: '#032842', celadon: '#80BBAD', wheat: '#DBD99A', sage: '#538184',
+    midnightTint: '#778F9C', sageTint: '#96B3B6', celadonTint: '#C0D4CB',
+    cement: '#7F8480', wheatTint: '#EFECD2', cementTint: '#CBCDCB',
+    dataOrange: '#D2785A', dataPurple: '#885073', dataLightPurple: '#A388BF',
+    dataBlue: '#1F3765', dataLightBlue: '#3E7CA6',
+    negativeRed: '#AD2A2A', positiveText: '#28573C', negativeText: '#A03530'
+  };
+
+  // Map-pin categories. Pins render as white chips with a colored ring and a
+  // distinct emoji, so the emoji + label carry identity and color supports it.
+  // Hues are CBRE hues; lightness is tuned so every ring clears 3:1 on white.
+  // Worst ADJACENT pair in this list order: ΔE 15.7 (>= 15 floor).
+  const AMENITY_COLORS = {
+    schools: '#355fb2', colleges: '#9d427e', grocery: '#7d7808', restaurants: '#cb6441',
+    retail: '#9667c1', pharmacy: '#0c8e7a', health: '#ab413c', banks: '#435254',
+    fuel: '#0a7cb7', parks: '#06684d'
+  };
+
+  // Transit line colors. Legend order is chosen so the worst adjacent CVD pair
+  // is maximised; each mode also carries a distinct dash pattern (see TRANSIT),
+  // so mode is never conveyed by color alone.
+  const TRANSIT_COLORS = {
+    light: { bus: '#0977ba', lightRail: '#d9704d', metro: '#b15490', ferry: '#10a992', rail: '#087557' },
+    dark:  { bus: '#1d87cd', lightRail: '#d66741', metro: '#b15490', ferry: '#10a992', rail: '#0a8664' }
+  };
+
+  // Crime density heat ramp — CBRE negative-red hue (26 deg), monotone
+  // lightness. Shared by both themes (it sits on map tiles, not on a panel).
+  const HEAT = { 0.25: '#f8d5d0', 0.45: '#e5b0aa', 0.62: '#d08d86', 0.78: '#bb6962', 0.9: '#a5453f', 1.0: '#8d1a1c' };
+
+  // Theme-dependent sets. Every ramp below was generated in OKLCH at a CBRE
+  // brand hue and checked with the dataviz validator; see README for the
+  // recorded results. Sequential ramps pass monotone-lightness, step-gap and
+  // single-hue; their end nearest the surface is allowed to recede because
+  // that is what "near zero" means in a sequential encoding.
   const PALETTE = {
-    seqBlue:   ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#1c5cab', '#0d366b'],
-    seqOrange: ['#fde3d3', '#f9c19e', '#f39a67', '#eb6834', '#c04e1d', '#8a350f'],
-    seqRed:    ['#fbd5d4', '#f4a3a2', '#ec7473', '#e34948', '#b02a2a', '#7a1414'],
-    cat: {
-      blue: '#2a78d6', orange: '#eb6834', aqua: '#1baf7a', yellow: '#eda100',
-      magenta: '#e87ba4', green: '#008300', violet: '#4a3aa7', red: '#e34948'
+    brand: BRAND,
+    heatGradient: HEAT,
+    amenities: AMENITY_COLORS,
+    status: {
+      good: BRAND.positiveText, warning: '#8A6D0B',
+      serious: BRAND.dataOrange, critical: BRAND.negativeRed
     },
-    status: { good: '#0ca30c', warning: '#fab219', serious: '#ec835a', critical: '#d03b3b' },
-    // Drive-time bands: single-hue ordinal (validated): near = dark.
-    isochrone: { 5: '#1c5cab', 10: '#3987e5', 15: '#86b6ef' },
-    crimeGroups: { person: '#e34948', property: '#2a78d6', society: '#4a3aa7', other: '#898781' },
-    heatGradient: { 0.25: '#fbd5d4', 0.45: '#f4a3a2', 0.62: '#ec7473', 0.78: '#e34948', 0.9: '#b02a2a', 1.0: '#7a1414' }
+    light: {
+      // CBRE Green hue, light -> dark
+      seqPrimary: ['#d9f2e7', '#accbbd', '#80a696', '#558270', '#2a5f4c', '#023d2c'],
+      // Midnight hue, light -> dark (kept a different hue family from the
+      // demographics ramp so the two choropleths never read alike)
+      seqSecondary: ['#dceefd', '#aec5d9', '#819db6', '#557794', '#2b5373', '#013050'],
+      // Discrete ordered bands at the Wheat hue (106 deg) - deliberately a
+      // different hue family from BOTH choropleth ramps (green 167, blue 245),
+      // because drive-time bands are large translucent fills that can sit on
+      // top of a choropleth. Nearest band = most prominent. Passes the full
+      // ordinal suite on a white surface.
+      isochrone: { 5: '#6c681c', 10: '#8e8b47', 15: '#b2b074' },
+      // Passes all-pairs CVD and normal-vision floors on white.
+      crimeGroups: { person: '#b94641', property: '#1577b7', society: '#928d27', other: BRAND.cement },
+      transit: TRANSIT_COLORS.light,
+      noData: BRAND.cementTint,
+      hoverOutline: BRAND.darkGreen
+    },
+    dark: {
+      seqPrimary: ['#dcf5ea', '#b3d3c5', '#8ab2a1', '#62927e', '#3a735e', '#05553e'],
+      seqSecondary: ['#e1f1ff', '#b6cee3', '#8dacc6', '#668baa', '#406a8e', '#164b72'],
+      // Same three validated steps, reversed: on the dark surface the
+      // brightest band is the one that reads as nearest.
+      isochrone: { 5: '#b2b074', 10: '#8e8b47', 15: '#6c681c' },
+      crimeGroups: { person: '#a53330', property: '#2b87c8', society: '#9d970d', other: BRAND.sageTint },
+      transit: TRANSIT_COLORS.dark,
+      noData: '#2b484a',
+      hoverOutline: '#ffffff'
+    }
   };
 
   // ------------------------------------------------------------------- map
@@ -37,17 +103,127 @@
     tractZoom: 9 // choropleths switch county -> tract at this zoom
   };
 
+  // Attribution strings are the exact text each provider asks for.
+  const ATTR_OSM = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  const ATTR_ESRI_CANVAS = 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors, and the GIS user community';
+  const ATTR_USGS = 'Tiles courtesy of the <a href="https://www.usgs.gov/">U.S. Geological Survey</a> &mdash; The National Map';
+
+  // Transparent label / reference layers. These are drawn in their own Leaflet
+  // pane ABOVE the data layers, so place names stay readable through a
+  // choropleth instead of being buried by it.
+  const LABEL_LAYERS = {
+    esriLightRef: {
+      label: 'Esri light reference',
+      urls: ['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}'],
+      options: { maxZoom: 19, maxNativeZoom: 16 }
+    },
+    esriDarkRef: {
+      label: 'Esri dark reference',
+      urls: ['https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}'],
+      options: { maxZoom: 19, maxNativeZoom: 16 }
+    },
+    esriImageryRef: {
+      label: 'Esri places & roads',
+      urls: [
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
+      ],
+      options: { maxZoom: 19 }
+    }
+  };
+
+  // Base maps, grouped for the picker. Every entry is keyless and CORS-enabled.
+  // `native` is Leaflet's maxNativeZoom: tiles stop at that level and are
+  // upsampled beyond it, which keeps the map usable past a service's real
+  // cache depth instead of going blank.
+  // `labels` names the transparent reference layer that pairs with the base.
+  // NOTE ON TILE URL AXIS ORDER: every ArcGIS-hosted service below uses
+  // /tile/{z}/{y}/{x} (row before column), the reverse of the OSM {z}/{x}/{y}
+  // convention. Swapping them yields a plausible-looking but scrambled map
+  // rather than an obvious error, so do not "tidy" these into {x}/{y}.
+  const BASEMAP_GROUPS = ['Street', 'Analysis canvas', 'Aerial imagery', 'Terrain & topographic', 'Thematic'];
   const BASEMAPS = [
-    { id: 'streets', label: 'Streets (OSM)', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      options: { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' } },
-    { id: 'light', label: 'Light (CARTO)', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      options: { maxZoom: 20, subdomains: 'abcd', attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' } },
-    { id: 'dark', label: 'Dark (CARTO)', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-      options: { maxZoom: 20, subdomains: 'abcd', attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' } },
-    { id: 'imagery', label: 'Imagery (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      options: { maxZoom: 19, attribution: 'Imagery &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' } },
-    { id: 'topo', label: 'Topo (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-      options: { maxZoom: 19, attribution: 'Map tiles &copy; Esri &mdash; Esri, HERE, Garmin, FAO, NOAA, USGS, &copy; OpenStreetMap contributors' } }
+    // ---- Street ---------------------------------------------------------
+    { id: 'osm', label: 'OpenStreetMap', group: 'Street',
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      options: { maxZoom: 19, attribution: ATTR_OSM },
+      note: 'Community-maintained and the most current street data here.' },
+    { id: 'esri-street', label: 'Esri Streets', group: 'Street',
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, METI, and the GIS user community' },
+      note: 'Esri legacy raster service (Mature Support): cartography is frozen at 2021.' },
+    { id: 'osm-hot', label: 'OSM Humanitarian', group: 'Street',
+      url: 'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+      options: { maxZoom: 20, subdomains: 'abc', attribution: ATTR_OSM + ', tiles by <a href="https://www.hotosm.org/">HOT</a>, hosted by <a href="https://openstreetmap.fr/">OSM France</a>' },
+      note: 'High-contrast OSM style; reads well at high zoom.' },
+
+    // ---- Analysis canvas ------------------------------------------------
+    { id: 'esri-light-gray', label: 'Light Gray Canvas', group: 'Analysis canvas',
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, maxNativeZoom: 16, attribution: ATTR_ESRI_CANVAS },
+      labels: 'esriLightRef',
+      note: 'Built by Esri to sit under thematic data - the best backdrop for the choropleth layers.' },
+    { id: 'esri-dark-gray', label: 'Dark Gray Canvas', group: 'Analysis canvas',
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, maxNativeZoom: 16, attribution: ATTR_ESRI_CANVAS },
+      labels: 'esriDarkRef',
+      note: 'Dark analysis canvas; pairs with the CBRE dark theme.' },
+
+    // ---- Aerial imagery -------------------------------------------------
+    { id: 'esri-imagery', label: 'Esri World Imagery', group: 'Aerial imagery',
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community' },
+      labels: 'esriImageryRef',
+      note: 'Still actively maintained by Esri; turn labels on for a hybrid view.' },
+    { id: 'usgs-imagery', label: 'USGS Imagery (NAIP)', group: 'Aerial imagery',
+      url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, maxNativeZoom: 16, attribution: ATTR_USGS },
+      labels: 'esriImageryRef',
+      note: 'U.S. federal imagery, public domain - the cleanest licensing of any layer here.' },
+    { id: 'usgs-imagery-topo', label: 'USGS Imagery + Topo', group: 'Aerial imagery',
+      url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, maxNativeZoom: 16, attribution: ATTR_USGS },
+      note: 'Federal imagery with topographic names and contours burned in.' },
+
+    // ---- Terrain & topographic -----------------------------------------
+    { id: 'usgs-topo', label: 'USGS Topo', group: 'Terrain & topographic',
+      url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, maxNativeZoom: 16, attribution: ATTR_USGS },
+      note: 'The classic USGS quad cartography, public domain.' },
+    { id: 'usgs-relief', label: 'USGS Shaded Relief', group: 'Terrain & topographic',
+      url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSShadedReliefOnly/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, maxNativeZoom: 15, attribution: ATTR_USGS },
+      labels: 'esriImageryRef',
+      note: 'Terrain only - useful for reading the Cascades and Olympics behind data layers.' },
+    { id: 'opentopomap', label: 'OpenTopoMap', group: 'Terrain & topographic',
+      url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      options: { maxZoom: 17, maxNativeZoom: 15, subdomains: 'abc', attribution: 'Map data: ' + ATTR_OSM + ', <a href="https://viewfinderpanoramas.org">SRTM</a> | Style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)' },
+      note: 'Contours and hillshade. Volunteer-run server - please go easy on it.' },
+    { id: 'esri-topo', label: 'Esri Topographic', group: 'Terrain & topographic',
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, DeLorme, NAVTEQ, TomTom, USGS, NPS, NRCAN, and the GIS user community' },
+      note: 'Esri legacy raster service (Mature Support): frozen at 2021.' },
+
+    { id: 'usgs-hydro', label: 'USGS Hydrography', group: 'Terrain & topographic',
+      url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSHydroCached/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 19, maxNativeZoom: 16, attribution: ATTR_USGS },
+      labels: 'esriImageryRef',
+      note: 'Rivers, lakes and wetlands - flood and waterfront context.' },
+
+    // ---- Thematic -------------------------------------------------------
+    { id: 'wsdot-base', label: 'WSDOT Washington base', group: 'Thematic',
+      url: 'https://data.wsdot.wa.gov/arcgis/rest/services/Shared/WebBaseMapWebMercator/MapServer/tile/{z}/{y}/{x}',
+      options: { maxZoom: 18, maxNativeZoom: 16, attribution: 'Washington State Department of Transportation' },
+      note: 'WSDOT\'s own state base map. Washington only - blank outside the state.',
+      waOnly: true },
+    { id: 'opnvkarte', label: 'Transit (OPNVKarte)', group: 'Thematic',
+      url: 'https://tileserver.memomaps.de/tilegen/{z}/{x}/{y}.png',
+      options: { maxZoom: 18, attribution: 'Map <a href="https://memomaps.de/">memomaps.de</a> (<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>), map data ' + ATTR_OSM },
+      note: 'Renders transit lines and stops in the basemap itself.' },
+    { id: 'cyclosm', label: 'CyclOSM (bike)', group: 'Thematic',
+      url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+      options: { maxZoom: 20, subdomains: 'abc', attribution: '<a href="https://www.cyclosm.org/">CyclOSM</a>, hosted by <a href="https://openstreetmap.fr/">OSM France</a> | Map data ' + ATTR_OSM },
+      note: 'Cycling infrastructure, useful as a walkability/bikeability proxy.' }
   ];
 
   // ---------------------------------------------------------------- census
@@ -152,27 +328,27 @@
   // source 'osm'  -> Overpass selectors (applied as nwr[...](bbox))
   // source 'nces' -> NCES EDGE point services with OSM fallback
   const AMENITIES = [
-    { id: 'schools', label: 'Schools (K-12)', emoji: '🏫', color: PALETTE.cat.blue, minZoom: 11, cap: 900,
+    { id: 'schools', label: 'Schools (K-12)', emoji: '🏫',  colorToken: 'schools', minZoom: 11, cap: 900,
       source: 'nces', ncesKind: 'k12',
       osm: ['["amenity"="school"]', '["amenity"="kindergarten"]'] },
-    { id: 'colleges', label: 'Colleges & universities', emoji: '🎓', color: PALETTE.cat.violet, minZoom: 9, cap: 500,
+    { id: 'colleges', label: 'Colleges & universities', emoji: '🎓',  colorToken: 'colleges', minZoom: 9, cap: 500,
       source: 'nces', ncesKind: 'postsecondary',
       osm: ['["amenity"="college"]', '["amenity"="university"]'] },
-    { id: 'grocery', label: 'Grocery & supermarkets', emoji: '🛒', color: PALETTE.cat.green, minZoom: 12, cap: 800,
+    { id: 'grocery', label: 'Grocery & supermarkets', emoji: '🛒',  colorToken: 'grocery', minZoom: 12, cap: 800,
       source: 'osm', osm: ['["shop"~"^(supermarket|grocery|greengrocer|convenience|health_food)$"]'] },
-    { id: 'restaurants', label: 'Restaurants & cafes', emoji: '🍽️', color: PALETTE.cat.orange, minZoom: 14, cap: 1200,
+    { id: 'restaurants', label: 'Restaurants & cafes', emoji: '🍽️',  colorToken: 'restaurants', minZoom: 14, cap: 1200,
       source: 'osm', osm: ['["amenity"~"^(restaurant|cafe|fast_food)$"]'] },
-    { id: 'retail', label: 'Retail & shopping', emoji: '🛍️', color: PALETTE.cat.magenta, minZoom: 14, cap: 1200,
+    { id: 'retail', label: 'Retail & shopping', emoji: '🛍️',  colorToken: 'retail', minZoom: 14, cap: 1200,
       source: 'osm', osm: ['["shop"~"^(mall|department_store|clothes|shoes|electronics|furniture|doityourself|hardware|sports|variety_store|general|gift|jewelry|beauty|books|toys|pet)$"]'] },
-    { id: 'pharmacy', label: 'Pharmacies', emoji: '💊', color: PALETTE.cat.aqua, minZoom: 12, cap: 500,
+    { id: 'pharmacy', label: 'Pharmacies', emoji: '💊',  colorToken: 'pharmacy', minZoom: 12, cap: 500,
       source: 'osm', osm: ['["amenity"="pharmacy"]', '["shop"="chemist"]', '["healthcare"="pharmacy"]'] },
-    { id: 'health', label: 'Hospitals & clinics', emoji: '🏥', color: PALETTE.cat.red, minZoom: 9, cap: 600,
+    { id: 'health', label: 'Hospitals & clinics', emoji: '🏥',  colorToken: 'health', minZoom: 9, cap: 600,
       source: 'osm', osm: ['["amenity"~"^(hospital|clinic)$"]', '["healthcare"~"^(hospital|clinic)$"]'] },
-    { id: 'banks', label: 'Banks & credit unions', emoji: '🏦', color: PALETTE.cat.yellow, minZoom: 13, cap: 500,
+    { id: 'banks', label: 'Banks & credit unions', emoji: '🏦',  colorToken: 'banks', minZoom: 13, cap: 500,
       source: 'osm', osm: ['["amenity"="bank"]'] },
-    { id: 'fuel', label: 'Fuel & EV charging', emoji: '⛽', color: PALETTE.cat.blue, minZoom: 12, cap: 700,
+    { id: 'fuel', label: 'Fuel & EV charging', emoji: '⛽',  colorToken: 'fuel', minZoom: 12, cap: 700,
       source: 'osm', osm: ['["amenity"="fuel"]', '["amenity"="charging_station"]'] },
-    { id: 'parks', label: 'Parks & playgrounds', emoji: '🌳', color: PALETTE.cat.green, minZoom: 12, cap: 900,
+    { id: 'parks', label: 'Parks & playgrounds', emoji: '🌳',  colorToken: 'parks', minZoom: 12, cap: 900,
       source: 'osm', osm: ['["leisure"~"^(park|playground)$"]'] }
   ];
 
@@ -193,15 +369,15 @@
     routesMinZoom: 8,
     // GTFS route_type -> display
     modes: {
-      0:  { label: 'Streetcar / tram', color: PALETTE.cat.violet, weight: 3 },
-      1:  { label: 'Metro', color: PALETTE.cat.orange, weight: 3 },
-      2:  { label: 'Rail (Amtrak / Sounder)', color: PALETTE.cat.green, weight: 3 },
-      3:  { label: 'Bus', color: PALETTE.cat.blue, weight: 2 },
-      4:  { label: 'Ferry', color: PALETTE.cat.aqua, weight: 3, dash: '6 6' },
-      5:  { label: 'Cable car', color: PALETTE.cat.magenta, weight: 3 },
-      6:  { label: 'Gondola', color: PALETTE.cat.magenta, weight: 3 },
-      7:  { label: 'Funicular', color: PALETTE.cat.magenta, weight: 3 },
-      12: { label: 'Monorail', color: PALETTE.cat.orange, weight: 3 },
+      0:  { label: 'Streetcar / tram', token: 'lightRail', weight: 3, dash: '6 3' },
+      1:  { label: 'Metro',            token: 'metro',     weight: 3, dash: '2 4' },
+      2:  { label: 'Rail (Amtrak / Sounder)', token: 'rail', weight: 3, dash: '10 4' },
+      3:  { label: 'Bus',              token: 'bus',       weight: 2 },
+      4:  { label: 'Ferry',            token: 'ferry',     weight: 3, dash: '4 6' },
+      5:  { label: 'Cable car',        token: 'metro',     weight: 3, dash: '2 4' },
+      6:  { label: 'Gondola',          token: 'metro',     weight: 3, dash: '2 4' },
+      7:  { label: 'Funicular',        token: 'metro',     weight: 3, dash: '2 4' },
+      12: { label: 'Monorail',         token: 'lightRail', weight: 3, dash: '8 3 2 3' },
       bus: 3, ferry: 4, light_rail: 0, tram: 0, train: 2, subway: 1, monorail: 12
     }
   };
@@ -283,7 +459,7 @@
   // ------------------------------------------------------------- drive time
   const ISOCHRONE = {
     endpoints: ['https://valhalla1.openstreetmap.de/isochrone'],
-    clientId: 'justin-tran1.github.io/wa-explorer',
+    clientId: 'justin-tran1.github.io/washington-state-demographics',
     minutes: [5, 10, 15],
     costing: 'auto',
     denoise: 0.35,
@@ -318,14 +494,22 @@
       'Estimates reflect typical (free-flow to moderate) conditions, not live congestion. Peak-hour drive times in urban areas can be materially longer.',
       'Population and income inside each band are estimated by allocating whole census tracts whose centroid falls inside the band (ACS 5-year data).'
     ]},
-    { section: 'Basemaps & geocoding', items: [
-      'Basemaps: OpenStreetMap; CARTO Positron / Dark Matter; Esri World Imagery and World Topographic Map.',
+    { section: 'Base maps', items: [
+      '16 base maps, all keyless and free to use: OpenStreetMap and OSM Humanitarian; Esri Light/Dark Gray Canvas, World Imagery, Streets and Topographic; USGS The National Map (Imagery, Imagery+Topo, Topo, Shaded Relief, Hydrography); OpenTopoMap; OPNVKarte transit; CyclOSM; and WSDOT\'s Washington base map.',
+      'Licensing, in plain terms: the USGS National Map services are U.S. federal works in the public domain with no commercial-use restriction - the cleanest option here, and the reason they are offered alongside the commercial alternatives. The Esri services at server.arcgisonline.com are keyless but are legacy raster layers in Esri Mature Support (cartography frozen around 2021, World Imagery excepted and still maintained); an organisation with an ArcGIS entitlement should point these at its own keyed basemap service. OpenStreetMap and the community servers (OSM France, OpenTopoMap, MeMoMaps) are volunteer-funded and ask that heavy or commercial traffic not lean on them.',
+      'CARTO Positron and Dark Matter were deliberately removed: CARTO began requiring an API key on basemaps.cartocdn.com in late August 2026 and now stamps anonymous tiles with an "API KEY REQUIRED" watermark while still returning HTTP 200, and CARTO\'s own basemap-styles licence restricts the tile services to enterprise customers.',
+      'Place labels can be drawn above the data layers (the "Labels above data layers" option) so street and city names stay readable through a choropleth instead of being buried by it.',
       'Address search: U.S. Census Bureau Geocoder (street addresses) with OpenStreetMap Nominatim as fallback and for place-name search. Reverse geocoding by Nominatim.'
+    ]},
+    { section: 'Colour & accessibility', items: [
+      'The interface uses the official CBRE brand palette: CBRE Green #003F2D, Accent Green #17E88F, Dark Green #012A2D, Dark Grey #435254 and the CBRE secondary and chart colours.',
+      'Data ramps are not raw brand swatches. Each one was generated in OKLCH at a CBRE brand hue and checked with a palette validator for monotone lightness, visible step gaps, single hue, colour-blind separation and contrast against the surface it is drawn on. Light and dark themes use separately chosen steps rather than an automatic inversion.',
+      'Colour is never the only channel: amenity pins carry a distinct emoji and label, transit modes carry a distinct dash pattern, and every layer has a legend. That matters because CBRE\'s palette is deliberately muted, so several brand hues sit closer together than a generic categorical palette would.'
     ]}
   ];
 
   WAMAP.CONFIG = {
-    PALETTE, MAP, BASEMAPS, CENSUS, TIGERWEB, DEMO_METRICS, INSURANCE_METRICS,
+    PALETTE, MAP, BASEMAPS, BASEMAP_GROUPS, LABEL_LAYERS, CENSUS, TIGERWEB, DEMO_METRICS, INSURANCE_METRICS,
     GEOCODE, OVERPASS, AMENITIES, NCES, TRANSIT, CRIME, ISOCHRONE, SOURCES,
     SQMI_PER_SQM
   };

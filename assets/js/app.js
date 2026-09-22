@@ -19,6 +19,8 @@
         '<div class="file-warning">This app loads data with fetch() and must be served over HTTP — run <code>python3 -m http.server</code> in the repo folder, or open the GitHub Pages URL.</div>');
     }
 
+    U.theme.init();
+
     // ------------------------------------------------------------- map
     const map = L.map('map', {
       center: CFG.MAP.center, zoom: CFG.MAP.zoom,
@@ -77,23 +79,70 @@
     map.on('click', e => { modes.handleClick(e.latlng); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') modes.cancel(); });
 
+    // ------------------------------------------------------ theme switch
+    const themeBtns = U.$$('#theme-switch .theme-btn');
+    function syncThemeBtns() {
+      for (const b of themeBtns) b.setAttribute('aria-pressed', String(b.dataset.themeSet === U.theme.mode));
+    }
+    for (const b of themeBtns) {
+      b.addEventListener('click', () => { U.theme.set(b.dataset.themeSet); syncThemeBtns(); });
+    }
+    U.theme.onChange(syncThemeBtns);
+    syncThemeBtns();
+
     // ---------------------------------------------------------- basemaps
-    const bmHost = U.$('#basemap-list');
+    // Base tiles live in Leaflet's own tilePane (below the data). Place
+    // labels get a dedicated pane ABOVE the data layers so street and city
+    // names stay readable through a choropleth.
+    map.createPane('labels');
+    map.getPane('labels').style.zIndex = 450;        // over overlays (400), under markers (600)
+    map.getPane('labels').style.pointerEvents = 'none';
+
+    const bmSelect = U.$('#basemap-select');
+    const bmNote = U.$('#basemap-note');
+    const labelsToggle = U.$('#labels-toggle');
+    const labelsWrap = U.$('#labels-toggle-wrap');
     let currentBase = null;
-    CFG.BASEMAPS.forEach((bm, i) => {
-      const input = U.el('input', { type: 'radio', name: 'basemap', id: 'bm-' + bm.id, value: bm.id });
-      if (i === 0) input.checked = true;
-      input.addEventListener('change', () => setBasemap(bm));
-      bmHost.appendChild(U.el('label', { class: 'bm-item', for: 'bm-' + bm.id }, [
-        input, U.el('span', { text: bm.label })
-      ]));
-    });
+    let currentLabels = [];
+    let currentBm = null;
+
+    for (const groupName of CFG.BASEMAP_GROUPS) {
+      const inGroup = CFG.BASEMAPS.filter(b => b.group === groupName);
+      if (!inGroup.length) continue;
+      const og = U.el('optgroup', { label: groupName });
+      for (const bm of inGroup) og.appendChild(U.el('option', { value: bm.id, text: bm.label }));
+      bmSelect.appendChild(og);
+    }
+
+    function clearLabelLayers() {
+      for (const l of currentLabels) map.removeLayer(l);
+      currentLabels = [];
+    }
+    function applyLabels() {
+      clearLabelLayers();
+      const spec = currentBm && currentBm.labels ? CFG.LABEL_LAYERS[currentBm.labels] : null;
+      labelsWrap.style.display = spec ? '' : 'none';
+      if (!spec || !labelsToggle.checked) return;
+      for (const url of spec.urls) {
+        const opts = Object.assign({ pane: 'labels', attribution: '' }, spec.options);
+        currentLabels.push(L.tileLayer(url, opts).addTo(map));
+      }
+    }
     function setBasemap(bm) {
+      if (!bm) return;
+      currentBm = bm;
       if (currentBase) map.removeLayer(currentBase);
       currentBase = L.tileLayer(bm.url, bm.options).addTo(map);
       currentBase.on('tileerror', U.debounce(() =>
-        WAMAP.toast('Some basemap tiles failed to load — try another basemap.', 'warning'), 3000));
+        WAMAP.toast('Some ' + bm.label + ' tiles failed to load — try another base map.', 'warning'), 4000));
+      bmNote.textContent = bm.note || '';
+      if (bmSelect.value !== bm.id) bmSelect.value = bm.id;
+      applyLabels();
     }
+    bmSelect.addEventListener('change', () => {
+      setBasemap(CFG.BASEMAPS.find(b => b.id === bmSelect.value));
+    });
+    labelsToggle.addEventListener('change', applyLabels);
     setBasemap(CFG.BASEMAPS[0]);
 
     // ------------------------------------------------------------ search
@@ -224,11 +273,11 @@
     // ------------------------------------------------------------ layers
     const layers = {};
     layers.demographics = WAMAP.createChoropleth({
-      id: 'demographics', metrics: CFG.DEMO_METRICS, ramp: CFG.PALETTE.seqBlue,
+      id: 'demographics', metrics: CFG.DEMO_METRICS, rampKey: 'seqPrimary',
       map, card: U.$('#card-demographics')
     });
     layers.insurance = WAMAP.createChoropleth({
-      id: 'insurance', metrics: CFG.INSURANCE_METRICS, ramp: CFG.PALETTE.seqOrange,
+      id: 'insurance', metrics: CFG.INSURANCE_METRICS, rampKey: 'seqSecondary',
       map, card: U.$('#card-insurance')
     });
     layers.amenities = WAMAP.createAmenities({ map, card: U.$('#card-amenities') });
@@ -258,8 +307,8 @@
     function serializeState() {
       const c = map.getCenter();
       const parts = [`map=${c.lat.toFixed(5)}/${c.lng.toFixed(5)}/${map.getZoom()}`];
-      const bm = U.$('input[name="basemap"]:checked');
-      if (bm && bm.value !== CFG.BASEMAPS[0].id) parts.push('bm=' + bm.value);
+      if (bmSelect.value && bmSelect.value !== CFG.BASEMAPS[0].id) parts.push('bm=' + bmSelect.value);
+      if (currentBm && currentBm.labels && !labelsToggle.checked) parts.push('nolabels=1');
       const on = Object.keys(layers).filter(id => {
         const t = U.$('#card-' + id + ' .card-toggle input');
         return t && t.checked;
@@ -298,10 +347,10 @@
         const [lat, lng, z] = st.map.split('/').map(Number);
         if (isFinite(lat) && isFinite(lng)) map.setView([lat, lng], isFinite(z) ? z : map.getZoom(), { animate: false });
       }
+      if (st.nolabels === '1') labelsToggle.checked = false;
       if (st.bm) {
         const bmCfg = CFG.BASEMAPS.find(b => b.id === st.bm);
-        const input = document.getElementById('bm-' + st.bm);
-        if (bmCfg && input) { input.checked = true; setBasemap(bmCfg); }
+        if (bmCfg) setBasemap(bmCfg);
       }
       const restoreSelect = (cardId, value) => {
         const sel = U.$('#card-' + cardId + ' select.input');

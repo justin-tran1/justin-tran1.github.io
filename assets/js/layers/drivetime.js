@@ -39,7 +39,7 @@
         else if (!state.minutes.length) clearResult(false);
       });
       bandRow.appendChild(U.el('label', { for: 'dt-band-' + m, class: 'check-item' }, [
-        cb, U.el('span', { class: 'cat-dot', style: 'background:' + CFG.PALETTE.isochrone[m] }),
+        cb, U.el('span', { class: 'cat-dot', style: 'background:' + U.theme.colors().isochrone[m] }),
         U.el('span', { text: m + ' min' })
       ]));
     }
@@ -63,7 +63,7 @@
       if (!state.lastResult) { legendBox.style.display = 'none'; return; }
       legendBox.innerHTML = '<div class="legend-title">Drive time</div>' +
         state.minutes.map(m =>
-          `<div class="legend-row"><span class="swatch" style="background:${CFG.PALETTE.isochrone[m]};opacity:.55"></span><span>≤ ${m} minutes</span></div>`
+          `<div class="legend-row"><span class="swatch" style="background:${U.theme.colors().isochrone[m]};opacity:.55"></span><span>≤ ${m} minutes</span></div>`
         ).join('') +
         '<div class="legend-src">Valhalla / OpenStreetMap · typical conditions</div>';
       legendBox.style.display = '';
@@ -138,7 +138,7 @@
       statsBox.innerHTML =
         '<table class="dt-table"><thead><tr><th></th><th>Population</th><th>House&shy;holds</th><th>Med. HH income*</th></tr></thead><tbody>' +
         rows.map(r =>
-          `<tr><td><span class="cat-dot" style="background:${CFG.PALETTE.isochrone[r.minutes]}"></span>≤ ${r.minutes} min</td>` +
+          `<tr><td><span class="cat-dot" style="background:${U.theme.colors().isochrone[r.minutes]}"></span>≤ ${r.minutes} min</td>` +
           `<td class="num">${U.fmt.int(r.pop)}</td><td class="num">${U.fmt.int(r.hh)}</td>` +
           `<td class="num">${U.fmt.money(r.medInc)}</td></tr>`).join('') +
         `</tbody></table><div class="hint">*Population-weighted average of tract medians. Tract-centroid allocation, ACS 5-Year ${rows[0] ? rows[0].span : ''}.</div>`;
@@ -167,7 +167,7 @@
         const minsDesc = Array.from(byMin.keys()).sort((a, b) => b - a);
         for (const m of minsDesc) {
           const geoms = byMin.get(m);
-          const color = CFG.PALETTE.isochrone[m] || CFG.PALETTE.isochrone[15];
+          const color = U.theme.colors().isochrone[m] || U.theme.colors().isochrone[15];
           let area = 0;
           for (const g of geoms) {
             area += U.geo.areaSqMi(g);

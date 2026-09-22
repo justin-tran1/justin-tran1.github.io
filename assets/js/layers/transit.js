@@ -27,7 +27,10 @@
     return t;
   }
   function modeStyle(t) {
-    return CFG.TRANSIT.modes[t] || CFG.TRANSIT.modes[3];
+    const m = CFG.TRANSIT.modes[t] || CFG.TRANSIT.modes[3];
+    // Color is resolved per theme; `dash` gives each mode a second,
+    // non-color channel so mode is never carried by hue alone.
+    return Object.assign({}, m, { color: U.theme.colors().transit[m.token] });
   }
 
   WAMAP.createTransit = function (opts) {
@@ -340,6 +343,7 @@
 
     const onMove = U.debounce(() => refresh(false), 600);
     map.on('moveend', onMove);
+    U.theme.onChange(() => { if (state.enabled) refresh(true); });
 
     return {
       id: 'transit',

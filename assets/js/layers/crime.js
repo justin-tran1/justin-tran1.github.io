@@ -79,7 +79,7 @@
       const gcb = U.el('input', { type: 'checkbox', id: 'crime-group-' + g.id });
       const header = U.el('label', { class: 'check-group', for: 'crime-group-' + g.id }, [
         gcb,
-        U.el('span', { class: 'cat-dot', style: 'background:' + CFG.PALETTE.crimeGroups[g.id] }),
+        U.el('span', { class: 'cat-dot', style: 'background:' + U.theme.colors().crimeGroups[g.id] }),
         U.el('strong', { text: g.label })
       ]);
       catList.appendChild(header);
@@ -347,7 +347,7 @@
       const city = state.cities.get(inc.cityId);
       const cat = CAT_BY_ID[inc.catId];
       return `<div class="popup-poi"><h3>${U.escapeHTML(inc.offense)}</h3>
-        <div class="popup-cat"><span class="cat-dot" style="background:${CFG.PALETTE.crimeGroups[inc.group]}"></span>
+        <div class="popup-cat"><span class="cat-dot" style="background:${U.theme.colors().crimeGroups[inc.group]}"></span>
         ${U.escapeHTML(cat.label)}</div>
         ${inc.date ? `<div>${U.escapeHTML(inc.date.toLocaleString())}</div>` : ''}
         ${inc.addr ? `<div>${U.escapeHTML(inc.addr)}</div>` : ''}
@@ -364,7 +364,7 @@
           L.marker([inc.lat, inc.lon], {
             icon: L.divIcon({
               className: 'poi-icon',
-              html: `<span class="crime-dot" style="background:${CFG.PALETTE.crimeGroups[inc.group]}"></span>`,
+              html: `<span class="crime-dot" style="background:${U.theme.colors().crimeGroups[inc.group]}"></span>`,
               iconSize: [12, 12], iconAnchor: [6, 6], popupAnchor: [0, -6]
             })
           }).bindPopup(incidentPopup(inc), { maxWidth: 300 }));
@@ -406,6 +406,7 @@
     });
     modeSel.addEventListener('change', () => { state.mode = modeSel.value; renderIncidents(); });
     map.on('moveend', U.debounce(() => updateViewCounts(), 350));
+    U.theme.onChange(() => { if (state.enabled) renderIncidents(); });
 
     return {
       id: 'crime',

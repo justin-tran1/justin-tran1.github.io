@@ -66,9 +66,12 @@
       // Midnight hue, light -> dark (kept a different hue family from the
       // demographics ramp so the two choropleths never read alike)
       seqSecondary: ['#dceefd', '#aec5d9', '#819db6', '#557794', '#2b5373', '#013050'],
-      // Discrete ordered bands: nearest = most prominent. Passes the full
-      // ordinal suite against a white surface.
-      isochrone: { 5: '#024330', 10: '#467864', 15: '#84b09d' },
+      // Discrete ordered bands at the Wheat hue (106 deg) - deliberately a
+      // different hue family from BOTH choropleth ramps (green 167, blue 245),
+      // because drive-time bands are large translucent fills that can sit on
+      // top of a choropleth. Nearest band = most prominent. Passes the full
+      // ordinal suite on a white surface.
+      isochrone: { 5: '#6c681c', 10: '#8e8b47', 15: '#b2b074' },
       // Passes all-pairs CVD and normal-vision floors on white.
       crimeGroups: { person: '#b94641', property: '#1577b7', society: '#928d27', other: BRAND.cement },
       transit: TRANSIT_COLORS.light,
@@ -78,8 +81,9 @@
     dark: {
       seqPrimary: ['#dcf5ea', '#b3d3c5', '#8ab2a1', '#62927e', '#3a735e', '#05553e'],
       seqSecondary: ['#e1f1ff', '#b6cee3', '#8dacc6', '#668baa', '#406a8e', '#164b72'],
-      // On the dark surface the brightest band reads as nearest.
-      isochrone: { 5: '#b3dcca', 10: '#7dae9a', 15: '#49826c' },
+      // Same three validated steps, reversed: on the dark surface the
+      // brightest band is the one that reads as nearest.
+      isochrone: { 5: '#b2b074', 10: '#8e8b47', 15: '#6c681c' },
       crimeGroups: { person: '#a53330', property: '#2b87c8', society: '#9d970d', other: BRAND.sageTint },
       transit: TRANSIT_COLORS.dark,
       noData: '#2b484a',

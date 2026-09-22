@@ -96,7 +96,7 @@ results:
 | Demographics ramp | CBRE Green hue (167°), 6 steps | monotone lightness, ΔL gaps, single hue — pass, both themes |
 | Insurance ramp | Midnight hue (245°), 6 steps | same — pass, both themes; a different hue family so the two choropleths never read alike |
 | Crime heat | Negative-red hue (26°), 6 stops | monotone, single hue — pass |
-| Drive-time bands | CBRE Green hue, 3 ordinal steps | full ordinal suite passes in both themes (light end 2.42:1 on white, 3.42:1 on Dark Green) |
+| Drive-time bands | Wheat hue (106°), 3 ordinal steps | full ordinal suite passes in both themes (2.24:1 on white, 2.65:1 on Dark Green). A third hue family on purpose: the bands are large translucent fills that can sit on top of a choropleth, so they must not share a hue with either ramp |
 | Crime groups | red / blue / olive at brand hues | all-pairs CVD and normal-vision floors pass in both themes (worst 17.3 deutan, 25.3 normal in dark) |
 | Amenity pins (10) | CBRE chart hues | worst *adjacent* pair ΔE 15.7; all-pairs cannot pass at ten categories, so emoji + label carry identity |
 | Transit modes (5) | CBRE chart hues | adjacent pairs pass in both themes; each mode also has its own dash pattern |

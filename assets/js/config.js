@@ -459,7 +459,7 @@
   // ------------------------------------------------------------- drive time
   const ISOCHRONE = {
     endpoints: ['https://valhalla1.openstreetmap.de/isochrone'],
-    clientId: 'justin-tran1.github.io/wa-explorer',
+    clientId: 'justin-tran1.github.io/washington-state-demographics',
     minutes: [5, 10, 15],
     costing: 'auto',
     denoise: 0.35,

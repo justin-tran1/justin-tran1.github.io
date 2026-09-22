@@ -5,8 +5,12 @@ amenities, transit, crime, and 5/10/15-minute drive-time analysis — all fetche
 public, authoritative data services. Pure static site (Leaflet + vanilla JS, no build step),
 designed to run on GitHub Pages.
 
-**Open `index.html` via any static web server, or visit the GitHub Pages URL once this is on
-the default branch.**
+**Live site:** https://justin-tran1.github.io/washington-state-demographics/ (once this is merged
+to the default branch). Locally, open `index.html` via any static web server.
+
+This repository is a GitHub Pages *project site*, so the app is served from the
+`/washington-state-demographics/` sub-path rather than the domain root. Every asset path in the
+app is relative, so it works unchanged at either location.
 
 ## Features
 

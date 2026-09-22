@@ -59,6 +59,38 @@
     del(key) { try { localStorage.removeItem('wamap:' + key); } catch (e) {} }
   };
 
+  // ----------------------------------------------------------------- theme
+  // Resolves the active CBRE color set. 'auto' follows the OS; the explicit
+  // modes win over it. Layers subscribe so they can restyle in place when the
+  // theme flips rather than waiting for the next data fetch.
+  const theme = {
+    _mode: 'auto',
+    _mql: window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : { matches: false, addEventListener() {} },
+    _subs: [],
+    get mode() { return this._mode; },
+    isDark() { return this._mode === 'dark' || (this._mode === 'auto' && this._mql.matches); },
+    /** the active theme-dependent palette set */
+    colors() { return CFG.PALETTE[this.isDark() ? 'dark' : 'light']; },
+    set(mode) {
+      this._mode = ['auto', 'light', 'dark'].includes(mode) ? mode : 'auto';
+      store.set('theme', this._mode);
+      this.apply();
+    },
+    apply() {
+      document.documentElement.setAttribute('data-theme', this.isDark() ? 'dark' : 'light');
+      for (const cb of this._subs) { try { cb(); } catch (e) { /* one bad subscriber must not break the rest */ } }
+    },
+    onChange(cb) { this._subs.push(cb); },
+    init() {
+      const saved = store.get('theme');
+      if (saved) this._mode = saved;
+      if (this._mql.addEventListener) {
+        this._mql.addEventListener('change', () => { if (this._mode === 'auto') this.apply(); });
+      }
+      this.apply();
+    }
+  };
+
   // ------------------------------------------------------------------ http
   async function fetchJSON(url, opts = {}) {
     const { timeout = 30000, retries = 1, init = {} } = opts;
@@ -541,6 +573,6 @@
 
   WAMAP.util = {
     $, $$, el, escapeHTML, fmt, debounce, store, fetchJSON, qs,
-    arcgis, socrataQuery, socrataColumns, overpass, censusStore, tigerweb, geo, geocode
+    arcgis, socrataQuery, socrataColumns, overpass, censusStore, tigerweb, geo, geocode, theme
   };
 })();

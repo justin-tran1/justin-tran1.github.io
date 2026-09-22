@@ -138,6 +138,10 @@ const CDN_FILES = {
   'leaflet-heat.js': [PKGS + 'leaflet.heat/dist/leaflet-heat.js', 'application/javascript']
 };
 
+const PNG_1PX = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64');
+
 // --------------------------------------------------------------- routing
 function jsonRes(obj) { return { contentType: 'application/json', body: JSON.stringify(obj) }; }
 function handle(url, method, postData) {
@@ -251,7 +255,13 @@ function handle(url, method, postData) {
   if (u.hostname === 'geocoding.geo.census.gov') {
     return jsonRes({ result: { addressMatches: [{ matchedAddress: '400 BROAD ST, SEATTLE, WA, 98109', coordinates: { x: -122.3493, y: 47.6205 } }] } });
   }
-  // tiles and anything else: block
+  // Map tiles: serve a 1x1 transparent PNG so Leaflet really builds tile
+  // elements (the label-pane assertions depend on that).
+  if (/\.png$|\/MapServer\/tile\//.test(u.pathname) ||
+      /tile|basemap|arcgisonline|nationalmap/.test(u.hostname)) {
+    return { contentType: 'image/png', body: PNG_1PX, headers: { 'Access-Control-Allow-Origin': '*' } };
+  }
+  // anything else: block
   return { status: 404, contentType: 'text/plain', body: 'blocked by test' };
 }
 
@@ -284,7 +294,15 @@ console.log('· loading app');
 await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(1200);
 assert(await page.locator('#map .leaflet-pane').count() > 0, 'Leaflet map initialized');
-assert(await page.locator('.bm-item').count() === 5, '5 basemap options rendered');
+const bmCount = await page.locator('#basemap-select option').count();
+const bmGroups = await page.locator('#basemap-select optgroup').count();
+assert(bmCount === 16, `16 base maps offered, got ${bmCount}`);
+assert(bmGroups === 5, `5 base-map groups, got ${bmGroups}`);
+const bmHosts = await page.evaluate(() => WAMAP.CONFIG.BASEMAPS.map(b => new URL(b.url.replace('{s}', 'a')).host));
+assert(await page.evaluate(() => WAMAP.CONFIG.BASEMAPS.every(b => /^https:/.test(b.url))), 'every base map is served over HTTPS');
+assert(await page.evaluate(() => WAMAP.CONFIG.BASEMAPS.filter(b => /arcgis/.test(b.url)).every(b => /\/tile\/\{z\}\/\{y\}\/\{x\}$/.test(b.url))), 'ArcGIS services use the {z}/{y}/{x} row-major tile order');
+assert(!bmHosts.some(h => h.includes('cartocdn')), 'no CARTO tiles (they now require an API key)');
+assert(!(await page.evaluate(() => WAMAP.CONFIG.BASEMAPS.some(b => /\{apikey\}|\bkey=/.test(b.url)))), 'no base map needs an API key');
 assert(await page.locator('.layer-card').count() === 6, '6 layer cards rendered');
 
 console.log('· demographics (county level)');
@@ -395,23 +413,97 @@ assert(/Drive times from here/.test(await page.locator('.leaflet-popup').textCon
 
 console.log('· pins');
 await page.evaluate(() => WAMAP.map.closePopup());
+// Turn the data layers off first: transit lines and crime dots are
+// interactive, and a click that lands on one opens its popup instead of
+// reaching the map, which would make this test order-dependent.
+for (const id of ['amenities', 'transit', 'crime']) await setToggle('card-' + id, false);
+await page.waitForTimeout(400);
 await page.locator('#pin-mode-btn').click();
 const mapBox = await page.locator('#map').boundingBox();
-await page.mouse.click(mapBox.x + mapBox.width * 0.6, mapBox.y + mapBox.height * 0.4);
-await page.waitForTimeout(600); // avoid the two clicks registering as a double-click zoom
-await page.mouse.click(mapBox.x + mapBox.width * 0.65, mapBox.y + mapBox.height * 0.45);
-await page.waitForTimeout(600);
-assert((await page.locator('#pin-count').textContent()).trim() === '2', 'two pins dropped in pin mode');
+await page.mouse.click(mapBox.x + mapBox.width * 0.30, mapBox.y + mapBox.height * 0.70);
+await page.waitForFunction(() => document.getElementById('pin-count').textContent.trim() === '1', null, { timeout: 5000 }).catch(() => {});
+await page.waitForTimeout(700); // keep the two clicks from coalescing into a double-click zoom
+await page.mouse.click(mapBox.x + mapBox.width * 0.72, mapBox.y + mapBox.height * 0.28);
+await page.waitForFunction(() => document.getElementById('pin-count').textContent.trim() === '2', null, { timeout: 5000 }).catch(() => {});
+const pinDiag = await page.evaluate(() => ({
+  count: document.getElementById('pin-count').textContent.trim(),
+  modeActive: !!(window.WAMAP.modes && window.WAMAP.modes.active),
+  btnActive: document.getElementById('pin-mode-btn').classList.contains('active'),
+  popupOpen: !!document.querySelector('.leaflet-popup')
+}));
+assert(pinDiag.count === '2', 'two pins dropped in pin mode: ' + JSON.stringify(pinDiag));
 await page.keyboard.press('Escape');
 await page.locator('#pin-clear-btn').click();
-await page.waitForTimeout(300);
+await page.waitForFunction(() => document.getElementById('pin-count').textContent.trim() === '', null, { timeout: 5000 }).catch(() => {});
 assert((await page.locator('#pin-count').textContent()).trim() === '', 'pins cleared');
+
+// restore the layers the pin test switched off, so the URL-state round trip
+// below still covers a realistic multi-layer selection
+for (const id of ['amenities', 'transit', 'crime']) await setToggle('card-' + id, true);
+await page.waitForTimeout(1500);
 
 console.log('· about modal');
 await page.locator('#about-btn').click();
 assert(await page.locator('#about-modal').isVisible(), 'sources modal opens');
 assert(/Valhalla/.test(await page.locator('#sources-content').textContent()), 'sources content populated');
 await page.locator('#about-close').click();
+
+console.log('· base maps + label sandwich');
+// OSM (default) carries no label overlay, so the toggle hides itself
+assert(await page.locator('#labels-toggle-wrap').isHidden(), 'labels toggle hidden for a base map with no reference layer');
+await page.locator('#basemap-select').selectOption('esri-light-gray');
+await page.waitForTimeout(700);
+assert(await page.locator('#labels-toggle-wrap').isVisible(), 'labels toggle shown for Light Gray Canvas');
+assert(/thematic data/.test(await page.locator('#basemap-note').textContent()), 'base-map note rendered');
+const paneInfo = await page.evaluate(() => {
+  const p = WAMAP.map.getPane('labels');
+  return { z: p && p.style.zIndex, tiles: p ? p.querySelectorAll('.leaflet-layer').length : -1 };
+});
+assert(paneInfo.z === '450', `labels pane sits above overlays at z-index 450, got ${paneInfo.z}`);
+assert(paneInfo.tiles === 1, `one label layer in the labels pane, got ${paneInfo.tiles}`);
+await page.locator('#labels-toggle').uncheck();
+await page.waitForTimeout(400);
+assert((await page.evaluate(() => WAMAP.map.getPane('labels').children.length)) === 0, 'unchecking removes the label layer');
+await page.locator('#labels-toggle').check();
+await page.waitForTimeout(400);
+const nativeZoom = await page.evaluate(() => WAMAP.CONFIG.BASEMAPS.find(b => b.id === 'usgs-imagery').options.maxNativeZoom);
+assert(nativeZoom === 16, 'USGS imagery declares maxNativeZoom so it upsamples instead of going blank');
+
+console.log('· CBRE theme');
+const themed = await page.evaluate(() => {
+  const out = {};
+  WAMAP.util.theme.set('light');
+  out.lightAttr = document.documentElement.getAttribute('data-theme');
+  out.lightRamp = WAMAP.util.theme.colors().seqPrimary[5];
+  out.lightAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  WAMAP.util.theme.set('dark');
+  out.darkAttr = document.documentElement.getAttribute('data-theme');
+  out.darkRamp = WAMAP.util.theme.colors().seqPrimary[5];
+  out.darkAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  out.darkSurface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
+  WAMAP.util.theme.set('auto');
+  out.brandGreen = WAMAP.CONFIG.PALETTE.brand.green;
+  return out;
+});
+assert(themed.lightAttr === 'light' && themed.darkAttr === 'dark', 'theme switch stamps data-theme');
+assert(themed.lightAccent.toLowerCase() === '#003f2d', `light accent is CBRE Green, got ${themed.lightAccent}`);
+assert(themed.darkAccent.toLowerCase() === '#17e88f', `dark accent is CBRE Accent Green, got ${themed.darkAccent}`);
+assert(themed.darkSurface.toLowerCase() === '#012a2d', `dark surface is CBRE Dark Green, got ${themed.darkSurface}`);
+assert(themed.lightRamp !== themed.darkRamp, 'choropleth ramp differs between themes');
+assert(themed.brandGreen === '#003F2D', 'official CBRE Green present in the palette');
+const strayColors = await page.evaluate(() => {
+  // every JS-side color must come from the CBRE palette module
+  const P = WAMAP.CONFIG.PALETTE;
+  const hexes = new Set();
+  const walk = v => {
+    if (typeof v === 'string') { if (/^#[0-9a-f]{6}$/i.test(v)) hexes.add(v.toLowerCase()); return; }
+    if (v && typeof v === 'object') Object.values(v).forEach(walk);
+  };
+  walk(P);
+  const banned = ['#2a78d6', '#eb6834', '#e34948', '#4a3aa7', '#1baf7a', '#eda100', '#e87ba4', '#008300'];
+  return banned.filter(b => hexes.has(b));
+});
+assert(strayColors.length === 0, `no pre-rebrand colors left in the palette (found ${strayColors.join(', ')})`);
 
 console.log('· shareable URL state');
 await page.locator('#card-insurance select.input').selectOption('insured');
